@@ -1,0 +1,8 @@
+bin/
+obj/
+*.user
+.vs/
+.idea/
+_reference/
+CLAUDE.md
+.claude/

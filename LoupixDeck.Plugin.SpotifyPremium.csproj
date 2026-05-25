@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>default</LangVersion>
+    <DebugType>embedded</DebugType>
+
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <!-- The cloned Loupedeck reference plugin lives under _reference/ as a
+       read-only inspiration; never compile it. -->
+  <ItemGroup>
+    <Compile Remove="_reference\**" />
+    <None Remove="_reference\**" />
+    <EmbeddedResource Remove="_reference\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LoupixDeck.PluginSdk" Version="1.4.0">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="SpotifyAPI.Web" Version="7.*" />
+  </ItemGroup>
+
+</Project>

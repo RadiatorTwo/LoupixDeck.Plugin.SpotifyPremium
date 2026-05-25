@@ -1,0 +1,8 @@
+{
+  "id": "spotifypremium",
+  "name": "SpotifyPremium",
+  "version": "1.0.0",
+  "sdkVersion": "1.4",
+  "entryAssembly": "LoupixDeck.Plugin.SpotifyPremium.dll",
+  "platform": "All"
+}
