@@ -17,7 +17,8 @@ internal sealed class LoginCommand : IPluginCommand
     {
         CommandName = "SpotifyPremium.Login",
         DisplayName = "Connect to Spotify",
-        Group = "Spotify Premium"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
 
     public ButtonTargets SupportedTargets => ButtonTargets.All;

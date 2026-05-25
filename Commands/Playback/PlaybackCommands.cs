@@ -13,7 +13,8 @@ internal sealed class TogglePlaybackCommand : SpotifyCommandBase, IDisplayComman
     {
         CommandName = "SpotifyPremium.TogglePlayback",
         DisplayName = "Toggle Play/Pause",
-        Group = "Spotify Premium"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
 
     public TimeSpan UpdateInterval => TimeSpan.FromSeconds(3);
@@ -37,7 +38,8 @@ internal sealed class NextTrackCommand : SpotifyCommandBase
     {
         CommandName = "SpotifyPremium.NextTrack",
         DisplayName = "Next Track",
-        Group = "Spotify Premium"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
 
     protected override Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
@@ -52,7 +54,8 @@ internal sealed class PreviousTrackCommand : SpotifyCommandBase
     {
         CommandName = "SpotifyPremium.PreviousTrack",
         DisplayName = "Previous Track",
-        Group = "Spotify Premium"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
 
     protected override Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
@@ -67,7 +70,8 @@ internal sealed class ShufflePlayCommand : SpotifyCommandBase, IDisplayCommand
     {
         CommandName = "SpotifyPremium.ShufflePlay",
         DisplayName = "Toggle Shuffle",
-        Group = "Spotify Premium"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
 
     public TimeSpan UpdateInterval => TimeSpan.FromSeconds(3);
@@ -88,7 +92,8 @@ internal sealed class ChangeRepeatStateCommand : SpotifyCommandBase, IDisplayCom
     {
         CommandName = "SpotifyPremium.ChangeRepeatState",
         DisplayName = "Cycle Repeat Mode",
-        Group = "Spotify Premium"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
 
     public TimeSpan UpdateInterval => TimeSpan.FromSeconds(3);
@@ -125,7 +130,8 @@ internal sealed class PlayNavigateLeftCommand : SpotifyCommandBase
     {
         CommandName = "SpotifyPremium.PlayNavigate.Left",
         DisplayName = "Previous Track (Rotary Left)",
-        Group = "Spotify Premium"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
     public override ButtonTargets SupportedTargets => ButtonTargets.RotaryEncoder | ButtonTargets.SimpleButton;
     protected override Task Run(SpotifyAPI.Web.SpotifyClient s, CommandContext ctx)
@@ -139,7 +145,8 @@ internal sealed class PlayNavigateRightCommand : SpotifyCommandBase
     {
         CommandName = "SpotifyPremium.PlayNavigate.Right",
         DisplayName = "Next Track (Rotary Right)",
-        Group = "Spotify Premium"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
     public override ButtonTargets SupportedTargets => ButtonTargets.RotaryEncoder | ButtonTargets.SimpleButton;
     protected override Task Run(SpotifyAPI.Web.SpotifyClient s, CommandContext ctx)

@@ -33,7 +33,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
     {
         Id = "spotifypremium",
         Name = "Spotify Premium",
-        Version = new Version(1, 0, 0),
+        Version = new Version(1, 1, 0),
         SdkVersion = new Version(1, 6, 0),
         Author = "RadiatorTwo",
         Description = "Control Spotify Premium from LoupixDeck: playback, volume, devices, playlists and likes."
@@ -177,15 +177,78 @@ new PluginSettingDescriptor
 
     // ---- IMenuContributor ----
 
+    // Maps each static command to the sub-folder it should appear under inside
+    // the top-level "Spotify Premium" group. Commands not listed here are
+    // excluded from the menu (e.g. adjustment commands surfaced via a different
+    // selection UI).
+    private static readonly Dictionary<string, string> StaticCategories = new(StringComparer.Ordinal)
+    {
+        ["SpotifyPremium.TogglePlayback"]     = "Playback",
+        ["SpotifyPremium.NextTrack"]          = "Playback",
+        ["SpotifyPremium.PreviousTrack"]      = "Playback",
+        ["SpotifyPremium.ShufflePlay"]        = "Playback",
+        ["SpotifyPremium.ChangeRepeatState"]  = "Playback",
+        ["SpotifyPremium.PlayNavigate.Left"]  = "Playback",
+        ["SpotifyPremium.PlayNavigate.Right"] = "Playback",
+        ["SpotifyPremium.Mute"]               = "Volume",
+        ["SpotifyPremium.Unmute"]             = "Volume",
+        ["SpotifyPremium.ToggleMute"]         = "Volume",
+        ["SpotifyPremium.DirectVolume"]       = "Volume",
+        ["SpotifyPremium.VolumeUp"]           = "Volume",
+        ["SpotifyPremium.VolumeDown"]         = "Volume",
+        ["SpotifyPremium.ToggleLike"]         = "Library",
+        ["SpotifyPremium.OpenDeviceSelector"] = "Devices",
+        ["SpotifyPremium.Login"]              = "Account"
+    };
+
+    private static readonly string[] CategoryOrder =
+        ["Playback", "Volume", "Library", "Playlists", "Devices", "Account"];
+
     public async Task<IReadOnlyList<MenuNode>> GetMenuNodes(ButtonTargets target)
     {
-        if (!_clientProvider.IsAuthorized)
+        var categories = new Dictionary<string, List<MenuNode>>(StringComparer.Ordinal);
+
+        foreach (var cmd in _commands)
+        {
+            var d = cmd.Descriptor;
+            if (!StaticCategories.TryGetValue(d.CommandName, out var category))
+                continue;
+            if (!cmd.SupportedTargets.HasFlag(target))
+                continue;
+
+            if (!categories.TryGetValue(category, out var leafs))
+            {
+                leafs = new List<MenuNode>();
+                categories[category] = leafs;
+            }
+
+            leafs.Add(new MenuNode { Name = d.DisplayName, CommandName = d.CommandName });
+        }
+
+        var playlistFolders = await BuildPlaylistFoldersAsync();
+        if (playlistFolders.Count > 0)
+            categories["Playlists"] = playlistFolders;
+
+        var subFolders = CategoryOrder
+            .Where(categories.ContainsKey)
+            .Select(name => new MenuNode { Name = name, Children = categories[name] })
+            .ToList();
+
+        if (subFolders.Count == 0)
             return Array.Empty<MenuNode>();
+
+        return [new MenuNode { Name = "Spotify Premium", Children = subFolders }];
+    }
+
+    private async Task<List<MenuNode>> BuildPlaylistFoldersAsync()
+    {
+        if (!_clientProvider.IsAuthorized)
+            return new List<MenuNode>();
 
         try
         {
             var spotify = await _clientProvider.GetClientAsync();
-            if (spotify == null) return Array.Empty<MenuNode>();
+            if (spotify == null) return new List<MenuNode>();
 
             var firstPage = await spotify.Playlists.CurrentUsers();
             var playlists = await spotify.PaginateAll(firstPage);
@@ -216,7 +279,7 @@ new PluginSettingDescriptor
         catch (Exception ex)
         {
             _host.Logger.Warn($"Failed to build playlist menu: {ex.Message}");
-            return Array.Empty<MenuNode>();
+            return new List<MenuNode>();
         }
     }
 

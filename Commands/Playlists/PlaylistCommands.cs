@@ -25,7 +25,7 @@ internal sealed class StartPlaylistCommand : IPluginCommand
     {
         CommandName = "SpotifyPremium.StartPlaylist",
         DisplayName = "Start Playlist",
-        Group = "Spotify Premium · Playlists",
+        Group = "Spotify Premium",
         ParameterTemplate = "({PlaylistId})",
         Parameters = [new CommandParameter("PlaylistId", typeof(string))],
         HiddenFromMenu = true
@@ -72,7 +72,8 @@ internal sealed class OpenDeviceSelectorCommand : IPluginCommand
     {
         CommandName = "SpotifyPremium.OpenDeviceSelector",
         DisplayName = "Open Device Selector",
-        Group = "Spotify Premium"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
 
     public ButtonTargets SupportedTargets => ButtonTargets.TouchButton;

@@ -12,7 +12,8 @@ internal sealed class MuteCommand : SpotifyCommandBase
     {
         CommandName = "SpotifyPremium.Mute",
         DisplayName = "Mute",
-        Group = "Spotify Premium · Volume"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
     protected override Task Run(SpotifyAPI.Web.SpotifyClient s, CommandContext ctx)
     {
@@ -30,7 +31,8 @@ internal sealed class UnmuteCommand : SpotifyCommandBase
     {
         CommandName = "SpotifyPremium.Unmute",
         DisplayName = "Unmute",
-        Group = "Spotify Premium · Volume"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
     protected override Task Run(SpotifyAPI.Web.SpotifyClient s, CommandContext ctx)
     {
@@ -46,7 +48,8 @@ internal sealed class ToggleMuteCommand : SpotifyCommandBase, IDisplayCommand
     {
         CommandName = "SpotifyPremium.ToggleMute",
         DisplayName = "Toggle Mute",
-        Group = "Spotify Premium · Volume"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
     public TimeSpan UpdateInterval => TimeSpan.FromSeconds(3);
     public string GetText(CommandContext ctx) => Player.State.VolumePercent == 0 ? "🔇" : $"🔊 {Player.State.VolumePercent}%";
@@ -72,9 +75,10 @@ internal sealed class DirectVolumeCommand : SpotifyCommandBase
     {
         CommandName = "SpotifyPremium.DirectVolume",
         DisplayName = "Set Volume",
-        Group = "Spotify Premium · Volume",
+        Group = "Spotify Premium",
         ParameterTemplate = "({Volume})",
-        Parameters = [new CommandParameter("Volume", typeof(int))]
+        Parameters = [new CommandParameter("Volume", typeof(int))],
+        HiddenFromMenu = true
     };
 
     protected override Task Run(SpotifyAPI.Web.SpotifyClient s, CommandContext ctx)
@@ -211,7 +215,8 @@ internal sealed class VolumeUpCommand : VolumeStepBase
     {
         CommandName = "SpotifyPremium.VolumeUp",
         DisplayName = "Volume +2%",
-        Group = "Spotify Premium · Volume"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
 }
 
@@ -223,7 +228,8 @@ internal sealed class VolumeDownCommand : VolumeStepBase
     {
         CommandName = "SpotifyPremium.VolumeDown",
         DisplayName = "Volume -2%",
-        Group = "Spotify Premium · Volume"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
 }
 
@@ -234,7 +240,7 @@ internal sealed class SpotifyVolumeAdjustment : SpotifyCommandBase, IAdjustmentC
     {
         CommandName = "SpotifyPremium.VolumeAdjustment",
         DisplayName = "Volume (Adjustment)",
-        Group = "Spotify Premium · Volume",
+        Group = "Spotify Premium",
         HiddenFromMenu = true
     };
     public override ButtonTargets SupportedTargets => ButtonTargets.RotaryEncoder;

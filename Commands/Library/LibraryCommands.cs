@@ -13,7 +13,8 @@ internal sealed class ToggleLikeCommand : SpotifyCommandBase, IDisplayCommand
     {
         CommandName = "SpotifyPremium.ToggleLike",
         DisplayName = "Toggle Like",
-        Group = "Spotify Premium · Library"
+        Group = "Spotify Premium",
+        HiddenFromMenu = true
     };
 
     public TimeSpan UpdateInterval => TimeSpan.FromSeconds(5);
@@ -54,7 +55,7 @@ internal sealed class SaveToPlaylistCommand : SpotifyCommandBase
     {
         CommandName = "SpotifyPremium.SaveToPlaylist",
         DisplayName = "Add Track to Playlist",
-        Group = "Spotify Premium · Library",
+        Group = "Spotify Premium",
         ParameterTemplate = "({PlaylistId})",
         Parameters = [new CommandParameter("PlaylistId", typeof(string))],
         HiddenFromMenu = true
