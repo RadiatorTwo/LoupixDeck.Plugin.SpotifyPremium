@@ -26,6 +26,8 @@ internal sealed class StartPlaylistCommand : IPluginCommand
         CommandName = "SpotifyPremium.StartPlaylist",
         DisplayName = "Start Playlist",
         Group = "Spotify Premium",
+        Icon = "\U000F040A",
+        Description = "Start playback of a playlist",
         ParameterTemplate = "({PlaylistId})",
         Parameters = [new CommandParameter("PlaylistId", typeof(string))],
         HiddenFromMenu = true
@@ -73,6 +75,8 @@ internal sealed class OpenDeviceSelectorCommand : IPluginCommand
         CommandName = "SpotifyPremium.OpenDeviceSelector",
         DisplayName = "Open Device Selector",
         Group = "Spotify Premium",
+        Icon = "\U000F075A",
+        Description = "Pick a Spotify Connect device",
         HiddenFromMenu = true
     };
 

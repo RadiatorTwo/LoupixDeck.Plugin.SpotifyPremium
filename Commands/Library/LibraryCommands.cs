@@ -14,6 +14,8 @@ internal sealed class ToggleLikeCommand : SpotifyCommandBase, IDisplayCommand
         CommandName = "SpotifyPremium.ToggleLike",
         DisplayName = "Toggle Like",
         Group = "Spotify Premium",
+        Icon = "\U000F02D1",
+        Description = "Like or unlike the current track",
         HiddenFromMenu = true
     };
 
@@ -56,6 +58,8 @@ internal sealed class SaveToPlaylistCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.SaveToPlaylist",
         DisplayName = "Add Track to Playlist",
         Group = "Spotify Premium",
+        Icon = "\U000F0415",
+        Description = "Add the current track to a playlist",
         ParameterTemplate = "({PlaylistId})",
         Parameters = [new CommandParameter("PlaylistId", typeof(string))],
         HiddenFromMenu = true

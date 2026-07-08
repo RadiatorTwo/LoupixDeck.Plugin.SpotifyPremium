@@ -14,6 +14,8 @@ internal sealed class TogglePlaybackCommand : SpotifyCommandBase, IDisplayComman
         CommandName = "SpotifyPremium.TogglePlayback",
         DisplayName = "Toggle Play/Pause",
         Group = "Spotify Premium",
+        Icon = "\U000F040A",
+        Description = "Play or pause the current track",
         HiddenFromMenu = true
     };
 
@@ -39,6 +41,8 @@ internal sealed class NextTrackCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.NextTrack",
         DisplayName = "Next Track",
         Group = "Spotify Premium",
+        Icon = "\U000F04AD",
+        Description = "Skip to the next track",
         HiddenFromMenu = true
     };
 
@@ -55,6 +59,8 @@ internal sealed class PreviousTrackCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.PreviousTrack",
         DisplayName = "Previous Track",
         Group = "Spotify Premium",
+        Icon = "\U000F04AE",
+        Description = "Skip to the previous track",
         HiddenFromMenu = true
     };
 
@@ -71,6 +77,8 @@ internal sealed class ShufflePlayCommand : SpotifyCommandBase, IDisplayCommand
         CommandName = "SpotifyPremium.ShufflePlay",
         DisplayName = "Toggle Shuffle",
         Group = "Spotify Premium",
+        Icon = "\U000F049D",
+        Description = "Toggle shuffle playback",
         HiddenFromMenu = true
     };
 
@@ -93,6 +101,8 @@ internal sealed class ChangeRepeatStateCommand : SpotifyCommandBase, IDisplayCom
         CommandName = "SpotifyPremium.ChangeRepeatState",
         DisplayName = "Cycle Repeat Mode",
         Group = "Spotify Premium",
+        Icon = "\U000F0456",
+        Description = "Cycle repeat off, all, one",
         HiddenFromMenu = true
     };
 
@@ -131,6 +141,8 @@ internal sealed class PlayNavigateLeftCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.PlayNavigate.Left",
         DisplayName = "Previous Track (Rotary Left)",
         Group = "Spotify Premium",
+        Icon = "\U000F04AE",
+        Description = "Previous track on rotary left",
         HiddenFromMenu = true
     };
     public override ButtonTargets SupportedTargets => ButtonTargets.RotaryEncoder | ButtonTargets.SimpleButton;
@@ -146,6 +158,8 @@ internal sealed class PlayNavigateRightCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.PlayNavigate.Right",
         DisplayName = "Next Track (Rotary Right)",
         Group = "Spotify Premium",
+        Icon = "\U000F04AD",
+        Description = "Next track on rotary right",
         HiddenFromMenu = true
     };
     public override ButtonTargets SupportedTargets => ButtonTargets.RotaryEncoder | ButtonTargets.SimpleButton;
@@ -161,6 +175,8 @@ internal sealed class PlayAndNavigateAdjustment : SpotifyCommandBase, IAdjustmen
         CommandName = "SpotifyPremium.PlayAndNavigate",
         DisplayName = "Track Navigation (Adjustment)",
         Group = "Spotify Premium",
+        Icon = "\U000F04AD",
+        Description = "Rotary track navigation with press to play",
         HiddenFromMenu = true
     };
     public override ButtonTargets SupportedTargets => ButtonTargets.RotaryEncoder;

@@ -34,7 +34,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
         Id = "spotifypremium",
         Name = "Spotify Premium",
         Version = new Version(1, 1, 0),
-        SdkVersion = new Version(1, 6, 0),
+        SdkVersion = new Version(1, 16, 0),
         Author = "RadiatorTwo",
         Description = "Control Spotify Premium from LoupixDeck: playback, volume, devices, playlists and likes."
     };
@@ -82,6 +82,17 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
     }
 
     public override IEnumerable<IPluginCommand> GetCommands() => _commands;
+
+    public override IReadOnlyList<CommandGroupDescriptor> GetCommandGroups() =>
+    [
+        new CommandGroupDescriptor
+        {
+            Group = "Spotify Premium",
+            Description = "Playback and library control",
+            Icon = "\U000F075A",
+            Section = CommandGroupSection.Plugins
+        }
+    ];
 
     public override void Shutdown()
     {

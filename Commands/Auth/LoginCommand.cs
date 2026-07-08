@@ -18,6 +18,8 @@ internal sealed class LoginCommand : IPluginCommand
         CommandName = "SpotifyPremium.Login",
         DisplayName = "Connect to Spotify",
         Group = "Spotify Premium",
+        Icon = "\U000F075A",
+        Description = "Start the Spotify OAuth login",
         HiddenFromMenu = true
     };
 
