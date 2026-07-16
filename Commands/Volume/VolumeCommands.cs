@@ -1,3 +1,4 @@
+using System.Globalization;
 using LoupixDeck.Plugin.SpotifyPremium.Commands.Common;
 using LoupixDeck.Plugin.SpotifyPremium.Spotify;
 using LoupixDeck.PluginSdk;
@@ -85,7 +86,7 @@ internal sealed class DirectVolumeCommand : SpotifyCommandBase
         Icon = "\U000F057E",
         Description = "Set volume to a fixed level",
         ParameterTemplate = "({Volume})",
-        Parameters = [new CommandParameter("Volume", typeof(int))],
+        Parameters = [new CommandParameter("Volume", typeof(int)) { DefaultValue = "50" }],
         HiddenFromMenu = true
     };
 
@@ -116,7 +117,27 @@ internal abstract class VolumeStepBase : SpotifyCommandBase
     private static readonly TimeSpan ResyncAfter = TimeSpan.FromSeconds(5);
 
     protected VolumeStepBase(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
+
+    /// <summary>Signed default step: its magnitude is the pre-filled default, its sign fixes
+    /// this command's direction (up vs down) regardless of what the user enters.</summary>
     protected abstract int Step { get; }
+
+    /// <summary>Default step magnitude, pre-filled into the command's settings flyout.</summary>
+    public const int DefaultStepMagnitude = 2;
+
+    /// <summary>Resolves the effective signed step: the user-entered magnitude (parameter 0)
+    /// carried by this command's direction, falling back to <see cref="Step"/> when unset.</summary>
+    private int ResolveStep(CommandContext ctx)
+    {
+        if (ctx.Parameters is { Length: > 0 } &&
+            int.TryParse(ctx.Parameters[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var magnitude) &&
+            magnitude != 0)
+        {
+            return Math.Sign(Step) * Math.Abs(magnitude);
+        }
+
+        return Step;
+    }
 
     public override ButtonTargets SupportedTargets => ButtonTargets.RotaryEncoder | ButtonTargets.SimpleButton;
 
@@ -131,7 +152,7 @@ internal abstract class VolumeStepBase : SpotifyCommandBase
             if (_localVolume < 0 || DateTime.UtcNow - _lastTickUtc > ResyncAfter)
                 _localVolume = Player.State.VolumePercent;
 
-            _localVolume = Math.Clamp(_localVolume + Step, 0, 100);
+            _localVolume = Math.Clamp(_localVolume + ResolveStep(ctx), 0, 100);
             _lastTickUtc = DateTime.UtcNow;
             _queuedTarget = _localVolume;
             target = _localVolume;
@@ -222,10 +243,12 @@ internal sealed class VolumeUpCommand : VolumeStepBase
     public override CommandDescriptor Descriptor { get; } = new()
     {
         CommandName = "SpotifyPremium.VolumeUp",
-        DisplayName = "Volume +2%",
+        DisplayName = "Volume Up",
         Group = "Spotify Premium",
         Icon = "\U000F0415",
-        Description = "Increase volume by 2%",
+        Description = "Increase volume by a step",
+        ParameterTemplate = "({Step})",
+        Parameters = [new CommandParameter("Step", typeof(int)) { DefaultValue = "2" }],
         HiddenFromMenu = true
     };
 }
@@ -237,10 +260,12 @@ internal sealed class VolumeDownCommand : VolumeStepBase
     public override CommandDescriptor Descriptor { get; } = new()
     {
         CommandName = "SpotifyPremium.VolumeDown",
-        DisplayName = "Volume -2%",
+        DisplayName = "Volume Down",
         Group = "Spotify Premium",
         Icon = "\U000F0374",
-        Description = "Decrease volume by 2%",
+        Description = "Decrease volume by a step",
+        ParameterTemplate = "({Step})",
+        Parameters = [new CommandParameter("Step", typeof(int)) { DefaultValue = "2" }],
         HiddenFromMenu = true
     };
 }
