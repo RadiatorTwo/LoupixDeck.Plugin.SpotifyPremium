@@ -33,7 +33,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
     {
         Id = "spotifypremium",
         Name = "Spotify Premium",
-        Version = new Version(1, 1, 0),
+        Version = new Version(1, 2, 0),
         SdkVersion = new Version(1, 16, 0),
         Author = "RadiatorTwo",
         Description = "Control Spotify Premium from LoupixDeck: playback, volume, devices, playlists and likes."
@@ -74,9 +74,16 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
             new PlayNavigateLeftCommand(_clientProvider, _playerState, host.Logger),
             new PlayNavigateRightCommand(_clientProvider, _playerState, host.Logger),
             new PlayAndNavigateAdjustment(_clientProvider, _playerState, host.Logger),
+            new SeekForwardCommand(_clientProvider, _playerState, host.Logger),
+            new SeekBackwardCommand(_clientProvider, _playerState, host.Logger),
+            new SeekAdjustment(_clientProvider, _playerState, host.Logger),
+            new AddToQueueCommand(_clientProvider, _playerState, host.Logger),
             new ToggleLikeCommand(_clientProvider, _playerState, host.Logger),
+            new PlayLikedSongsCommand(_clientProvider, _playerState, host.Logger),
             new SaveToPlaylistCommand(_clientProvider, _playerState, host.Logger),
+            new RemoveFromPlaylistCommand(_clientProvider, _playerState, host.Logger),
             new StartPlaylistCommand(_clientProvider, host.Logger),
+            new StartAlbumCommand(_clientProvider, _playerState, host.Logger),
             new OpenDeviceSelectorCommand(_clientProvider, _playerState)
         ];
     }
@@ -201,6 +208,10 @@ new PluginSettingDescriptor
         ["SpotifyPremium.ChangeRepeatState"]  = "Playback",
         ["SpotifyPremium.PlayNavigate.Left"]  = "Playback",
         ["SpotifyPremium.PlayNavigate.Right"] = "Playback",
+        ["SpotifyPremium.SeekForward"]        = "Playback",
+        ["SpotifyPremium.SeekBackward"]       = "Playback",
+        ["SpotifyPremium.SeekAdjustment"]     = "Playback",
+        ["SpotifyPremium.AddToQueue"]         = "Playback",
         ["SpotifyPremium.Mute"]               = "Volume",
         ["SpotifyPremium.Unmute"]             = "Volume",
         ["SpotifyPremium.ToggleMute"]         = "Volume",
@@ -208,12 +219,13 @@ new PluginSettingDescriptor
         ["SpotifyPremium.VolumeUp"]           = "Volume",
         ["SpotifyPremium.VolumeDown"]         = "Volume",
         ["SpotifyPremium.ToggleLike"]         = "Library",
+        ["SpotifyPremium.PlayLikedSongs"]     = "Library",
         ["SpotifyPremium.OpenDeviceSelector"] = "Devices",
         ["SpotifyPremium.Login"]              = "Account"
     };
 
     private static readonly string[] CategoryOrder =
-        ["Playback", "Volume", "Library", "Playlists", "Devices", "Account"];
+        ["Playback", "Volume", "Library", "Playlists", "Albums", "Devices", "Account"];
 
     public async Task<IReadOnlyList<MenuNode>> GetMenuNodes(ButtonTargets target)
     {
@@ -239,6 +251,10 @@ new PluginSettingDescriptor
         var playlistFolders = await BuildPlaylistFoldersAsync();
         if (playlistFolders.Count > 0)
             categories["Playlists"] = playlistFolders;
+
+        var albumFolders = await BuildAlbumFoldersAsync();
+        if (albumFolders.Count > 0)
+            categories["Albums"] = albumFolders;
 
         var subFolders = CategoryOrder
             .Where(categories.ContainsKey)
@@ -284,6 +300,11 @@ new PluginSettingDescriptor
                 {
                     Name = "Add Track to Playlist",
                     Children = ChildrenFor("SpotifyPremium.SaveToPlaylist")
+                },
+                new MenuNode
+                {
+                    Name = "Remove Track from Playlist",
+                    Children = ChildrenFor("SpotifyPremium.RemoveFromPlaylist")
                 }
             ];
         }
@@ -291,6 +312,46 @@ new PluginSettingDescriptor
         {
             _host.Logger.Warn($"Failed to build playlist menu: {ex.Message}");
             return new List<MenuNode>();
+        }
+    }
+
+    private async Task<List<MenuNode>> BuildAlbumFoldersAsync()
+    {
+        if (!_clientProvider.IsAuthorized)
+            return new List<MenuNode>();
+
+        // The by-link entry works even without saved albums: the user pastes
+        // an album link into the command's parameter.
+        var byLink = new MenuNode { Name = "Start Album by Link", CommandName = "SpotifyPremium.StartAlbum" };
+
+        try
+        {
+            var spotify = await _clientProvider.GetClientAsync();
+            if (spotify == null) return [byLink];
+
+            var firstPage = await spotify.Library.GetAlbums(new LibraryAlbumsRequest { Limit = 50 });
+            var albums = await spotify.PaginateAll(firstPage);
+
+            var saved = albums
+                .Where(a => a.Album != null)
+                .Select(a => new MenuNode
+                {
+                    Name = a.Album.Artists is { Count: > 0 }
+                        ? $"{a.Album.Name} – {a.Album.Artists[0].Name}"
+                        : a.Album.Name ?? "(untitled)",
+                    CommandName = "SpotifyPremium.StartAlbum",
+                    Parameters = new Dictionary<string, string> { ["Album"] = a.Album.Id ?? string.Empty }
+                })
+                .ToList();
+
+            return saved.Count == 0
+                ? [byLink]
+                : [new MenuNode { Name = "Start Saved Album", Children = saved }, byLink];
+        }
+        catch (Exception ex)
+        {
+            _host.Logger.Warn($"Failed to build album menu: {ex.Message}");
+            return [byLink];
         }
     }
 
