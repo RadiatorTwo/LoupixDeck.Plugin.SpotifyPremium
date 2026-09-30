@@ -37,11 +37,17 @@ internal sealed class ToggleLikeCommand : SpotifyCommandBase, IDisplayCommand
             return;
         }
 
+        // Library.SaveItems/RemoveItems send "uris" in the request body, but
+        // PUT/DELETE /me/library expect it as a query parameter — call it directly.
+        var api = await Client.GetConnectorAsync();
+        if (api == null) return;
+        var query = new Dictionary<string, string> { ["uris"] = trackUri };
+
         var saved = await spotify.Library.CheckItems(new LibraryCheckItemsRequest(new[] { trackUri }));
         if (saved is { Count: > 0 } && saved[0])
-            await spotify.Library.RemoveItems(new LibraryRemoveItemsRequest(new[] { trackUri }));
+            await api.Delete(SpotifyUrls.Library(), query, null, CancellationToken.None);
         else
-            await spotify.Library.SaveItems(new LibrarySaveItemsRequest(new[] { trackUri }));
+            await api.Put(SpotifyUrls.Library(), query, null, CancellationToken.None);
     }
 }
 
