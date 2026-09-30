@@ -163,8 +163,8 @@ new PluginSettingDescriptor
 
     internal Task<string> ConnectAsync()
     {
-        var clientId = _host.Settings.Get<string>(SettingClientId);
-        var clientSecret = _host.Settings.Get<string>(SettingClientSecret);
+        var clientId = _host.Settings.Get<string>(SettingClientId) ?? string.Empty;
+        var clientSecret = _host.Settings.Get<string>(SettingClientSecret) ?? string.Empty;
         var port = (int)_host.Settings.Get<long>(SettingCallbackPort, DefaultCallbackPort);
         if (port is <= 0 or >= 65536) port = DefaultCallbackPort;
         return _auth.AuthorizeAsync(clientId, clientSecret, port);

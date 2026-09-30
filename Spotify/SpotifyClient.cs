@@ -1,5 +1,6 @@
 using LoupixDeck.PluginSdk;
 using SpotifyAPI.Web;
+using SpotifyAPI.Web.Http;
 
 namespace LoupixDeck.Plugin.SpotifyPremium.Spotify;
 
@@ -19,6 +20,7 @@ public sealed class SpotifyClientProvider
 
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private SpotifyAPI.Web.SpotifyClient? _cached;
+    private IAPIConnector? _cachedConnector;
     private DateTime _cachedExpiryUtc;
 
     public SpotifyClientProvider(
@@ -77,14 +79,29 @@ public sealed class SpotifyClientProvider
         if (_cached != null && token.ExpiresAtUtc == _cachedExpiryUtc)
             return _cached;
 
-        _cached = new SpotifyAPI.Web.SpotifyClient(token.AccessToken);
+        // Keep the connector so callers can reach endpoints the typed clients
+        // get wrong (see GetConnectorAsync).
+        var config = SpotifyClientConfig.CreateDefault(token.AccessToken);
+        _cachedConnector = config.BuildAPIConnector();
+        _cached = new SpotifyAPI.Web.SpotifyClient(config.WithAPIConnector(_cachedConnector));
         _cachedExpiryUtc = token.ExpiresAtUtc;
         return _cached;
+    }
+
+    /// <summary>
+    /// Raw connector sharing the token of <see cref="GetClientAsync"/>, for
+    /// requests the typed clients build incorrectly.
+    /// </summary>
+    public async Task<IAPIConnector?> GetConnectorAsync(CancellationToken ct = default)
+    {
+        var client = await GetClientAsync(ct);
+        return client == null ? null : _cachedConnector;
     }
 
     public void Invalidate()
     {
         _cached = null;
+        _cachedConnector = null;
         _cachedExpiryUtc = DateTime.MinValue;
     }
 }

@@ -58,7 +58,7 @@ public sealed class TokenStore
     public void Clear()
     {
         _cached = null;
-        _settings.Set<string>(SettingsKey, null);
+        _settings.Set<string?>(SettingsKey, null);
         _settings.Save();
     }
 
