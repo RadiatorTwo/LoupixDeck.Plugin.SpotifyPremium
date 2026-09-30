@@ -33,7 +33,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
     {
         Id = "spotifypremium",
         Name = "Spotify Premium",
-        Version = new Version(1, 1, 0),
+        Version = new Version(1, 2, 0),
         SdkVersion = new Version(1, 16, 0),
         Author = "RadiatorTwo",
         Description = "Control Spotify Premium from LoupixDeck: playback, volume, devices, playlists and likes."
