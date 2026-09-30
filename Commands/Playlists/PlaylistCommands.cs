@@ -125,3 +125,41 @@ internal sealed class RemoveFromPlaylistCommand : SpotifyCommandBase
         });
     }
 }
+
+/// <summary>
+/// Starts playback of an album. The parameter accepts an album ID, a
+/// <c>spotify:album:</c> URI or an <c>open.spotify.com</c> share link; the
+/// plugin's <see cref="IMenuContributor"/> bakes the user's saved albums.
+/// </summary>
+internal sealed class StartAlbumCommand : SpotifyCommandBase
+{
+    public StartAlbumCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
+
+    public override CommandDescriptor Descriptor { get; } = new()
+    {
+        CommandName = "SpotifyPremium.StartAlbum",
+        DisplayName = "Start Album",
+        Group = "Spotify Premium",
+        Icon = "\U000F0025",
+        Description = "Start playback of an album (ID, URI or share link)",
+        ParameterTemplate = "({Album})",
+        Parameters = [new CommandParameter("Album", typeof(string))],
+        HiddenFromMenu = true
+    };
+
+    protected override async Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
+    {
+        var albumUri = SpotifyUri.Normalize(ctx.Parameters.FirstOrDefault(), "album");
+        if (albumUri == null)
+        {
+            Logger.Warn($"{Descriptor.CommandName}: '{ctx.Parameters.FirstOrDefault()}' is not an album ID, URI or link.");
+            return;
+        }
+
+        await spotify.Player.ResumePlayback(new PlayerResumePlaybackRequest
+        {
+            ContextUri = albumUri,
+            DeviceId = DeviceId(ctx, Player.State)
+        });
+    }
+}
