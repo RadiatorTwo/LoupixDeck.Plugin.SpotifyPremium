@@ -78,6 +78,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
             new SeekBackwardCommand(_clientProvider, _playerState, host.Logger),
             new SeekAdjustment(_clientProvider, _playerState, host.Logger),
             new ToggleLikeCommand(_clientProvider, _playerState, host.Logger),
+            new PlayLikedSongsCommand(_clientProvider, _playerState, host.Logger),
             new SaveToPlaylistCommand(_clientProvider, _playerState, host.Logger),
             new StartPlaylistCommand(_clientProvider, host.Logger),
             new OpenDeviceSelectorCommand(_clientProvider, _playerState)
@@ -214,6 +215,7 @@ new PluginSettingDescriptor
         ["SpotifyPremium.VolumeUp"]           = "Volume",
         ["SpotifyPremium.VolumeDown"]         = "Volume",
         ["SpotifyPremium.ToggleLike"]         = "Library",
+        ["SpotifyPremium.PlayLikedSongs"]     = "Library",
         ["SpotifyPremium.OpenDeviceSelector"] = "Devices",
         ["SpotifyPremium.Login"]              = "Account"
     };
