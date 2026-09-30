@@ -22,6 +22,12 @@ public sealed class PlayerStateCache : IDisposable
     // second or two — using the polled value would snap the UI backwards.
     private DateTime _lastLocalVolumeUtc = DateTime.MinValue;
     private static readonly TimeSpan LocalVolumeTrustWindow = TimeSpan.FromSeconds(5);
+    // Track position lives outside the snapshot: it changes on every poll and
+    // would otherwise fire Changed (and redraw every button) each time.
+    private readonly object _progressGate = new();
+    private int _progressMs;
+    private int _durationMs;
+    private DateTime _progressAtUtc = DateTime.MinValue;
 
     public PlayerStateCache(SpotifyClientProvider clientProvider, IPluginHost host, TimeSpan? pollInterval = null)
     {
@@ -54,6 +60,40 @@ public sealed class PlayerStateCache : IDisposable
     {
         _lastLocalVolumeUtc = DateTime.UtcNow;
         Update(State with { VolumePercent = Math.Clamp(percent, 0, 100) });
+    }
+
+    /// <summary>
+    /// Estimated playback position in milliseconds: the last polled progress
+    /// plus the time elapsed since, while playing.
+    /// </summary>
+    public int EstimatePositionMs()
+    {
+        lock (_progressGate)
+        {
+            var position = (double)_progressMs;
+            if (State.IsPlaying)
+                position += (DateTime.UtcNow - _progressAtUtc).TotalMilliseconds;
+            return (int)Math.Clamp(position, 0, Math.Max(_durationMs, 0));
+        }
+    }
+
+    /// <summary>Length of the current track in milliseconds, 0 if unknown.</summary>
+    public int DurationMs
+    {
+        get { lock (_progressGate) return _durationMs; }
+    }
+
+    /// <summary>
+    /// Records a locally requested seek so the next estimate starts from it
+    /// instead of the stale polled position.
+    /// </summary>
+    public void ApplyLocalPosition(int positionMs)
+    {
+        lock (_progressGate)
+        {
+            _progressMs = positionMs;
+            _progressAtUtc = DateTime.UtcNow;
+        }
     }
 
     private async Task LoopAsync(CancellationToken ct)
@@ -89,6 +129,12 @@ public sealed class PlayerStateCache : IDisposable
             }
 
             var track = playback.Item as FullTrack;
+            lock (_progressGate)
+            {
+                _progressMs = playback.ProgressMs;
+                _durationMs = track?.DurationMs ?? 0;
+                _progressAtUtc = DateTime.UtcNow;
+            }
             var polledVolume = playback.Device?.VolumePercent ?? 0;
             // Within the trust window the local copy stays authoritative —
             // prevents the polled value from snapping the rotary backwards
