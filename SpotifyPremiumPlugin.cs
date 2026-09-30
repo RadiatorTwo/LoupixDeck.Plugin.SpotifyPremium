@@ -80,6 +80,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
             new ToggleLikeCommand(_clientProvider, _playerState, host.Logger),
             new PlayLikedSongsCommand(_clientProvider, _playerState, host.Logger),
             new SaveToPlaylistCommand(_clientProvider, _playerState, host.Logger),
+            new RemoveFromPlaylistCommand(_clientProvider, _playerState, host.Logger),
             new StartPlaylistCommand(_clientProvider, host.Logger),
             new OpenDeviceSelectorCommand(_clientProvider, _playerState)
         ];
@@ -292,6 +293,11 @@ new PluginSettingDescriptor
                 {
                     Name = "Add Track to Playlist",
                     Children = ChildrenFor("SpotifyPremium.SaveToPlaylist")
+                },
+                new MenuNode
+                {
+                    Name = "Remove Track from Playlist",
+                    Children = ChildrenFor("SpotifyPremium.RemoveFromPlaylist")
                 }
             ];
         }

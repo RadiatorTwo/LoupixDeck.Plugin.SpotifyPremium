@@ -1,3 +1,4 @@
+using LoupixDeck.Plugin.SpotifyPremium.Commands.Common;
 using LoupixDeck.Plugin.SpotifyPremium.Folders;
 using LoupixDeck.Plugin.SpotifyPremium.Spotify;
 using LoupixDeck.PluginSdk;
@@ -87,5 +88,40 @@ internal sealed class OpenDeviceSelectorCommand : IPluginCommand
         var folder = new DeviceSelectorFolderProvider(_client, _player, ctx.Host.Logger);
         ctx.Host.OpenFolder(folder);
         return Task.CompletedTask;
+    }
+}
+
+/// <summary>
+/// Removes every occurrence of the currently playing track from the playlist
+/// whose ID is passed as a parameter. Counterpart of Add Track to Playlist;
+/// the plugin's <see cref="IMenuContributor"/> bakes one entry per playlist.
+/// </summary>
+internal sealed class RemoveFromPlaylistCommand : SpotifyCommandBase
+{
+    public RemoveFromPlaylistCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
+
+    public override CommandDescriptor Descriptor { get; } = new()
+    {
+        CommandName = "SpotifyPremium.RemoveFromPlaylist",
+        DisplayName = "Remove Track from Playlist",
+        Group = "Spotify Premium",
+        Icon = "\U000F0376",
+        Description = "Remove the current track from a playlist",
+        ParameterTemplate = "({PlaylistId})",
+        Parameters = [new CommandParameter("PlaylistId", typeof(string))],
+        HiddenFromMenu = true
+    };
+
+    protected override async Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
+    {
+        if (ctx.Parameters.Length == 0) return;
+        var playlistId = ctx.Parameters[0];
+        var trackUri = Player.State.TrackUri;
+        if (string.IsNullOrEmpty(playlistId) || string.IsNullOrEmpty(trackUri)) return;
+
+        await spotify.Playlists.RemovePlaylistItems(playlistId, new PlaylistRemoveItemsRequestV2
+        {
+            Items = [new PlaylistRemoveItemsRequestV2.Item { Uri = trackUri }]
+        });
     }
 }
