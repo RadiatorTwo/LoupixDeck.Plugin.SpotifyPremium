@@ -29,18 +29,19 @@ internal sealed class ToggleLikeCommand : SpotifyCommandBase, IDisplayCommand
 
     protected override async Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
     {
-        var trackId = Player.State.TrackId;
-        if (string.IsNullOrEmpty(trackId))
+        // The /me/library endpoints take Spotify URIs, not bare track IDs.
+        var trackUri = Player.State.TrackUri;
+        if (string.IsNullOrEmpty(trackUri))
         {
             Logger.Info("ToggleLike: no track playing.");
             return;
         }
 
-        var saved = await spotify.Library.CheckTracks(new LibraryCheckTracksRequest(new[] { trackId }));
+        var saved = await spotify.Library.CheckItems(new LibraryCheckItemsRequest(new[] { trackUri }));
         if (saved is { Count: > 0 } && saved[0])
-            await spotify.Library.RemoveTracks(new LibraryRemoveTracksRequest(new[] { trackId }));
+            await spotify.Library.RemoveItems(new LibraryRemoveItemsRequest(new[] { trackUri }));
         else
-            await spotify.Library.SaveTracks(new LibrarySaveTracksRequest(new[] { trackId }));
+            await spotify.Library.SaveItems(new LibrarySaveItemsRequest(new[] { trackUri }));
     }
 }
 
@@ -72,6 +73,6 @@ internal sealed class SaveToPlaylistCommand : SpotifyCommandBase
         var trackUri = Player.State.TrackUri;
         if (string.IsNullOrEmpty(playlistId) || string.IsNullOrEmpty(trackUri)) return;
 
-        await spotify.Playlists.AddItems(playlistId, new PlaylistAddItemsRequest(new[] { trackUri }));
+        await spotify.Playlists.AddPlaylistItems(playlistId, new PlaylistAddItemsRequest(new[] { trackUri }));
     }
 }
