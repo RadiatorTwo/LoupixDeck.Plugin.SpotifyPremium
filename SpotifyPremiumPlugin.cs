@@ -36,8 +36,20 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
         Version = new Version(1, 2, 0),
         SdkVersion = new Version(1, 16, 0),
         Author = "RadiatorTwo",
-        Description = "Control Spotify Premium from LoupixDeck: playback, volume, devices, playlists and likes."
+        Description = "Control Spotify Premium from LoupixDeck: playback, volume, devices, playlists and likes.",
+        Icon = LoadIcon()
     };
+
+    /// <summary>The plugin icon (icon.png, embedded). Missing data only costs the icon.</summary>
+    private static byte[]? LoadIcon()
+    {
+        using Stream? stream = typeof(SpotifyPremiumPlugin).Assembly.GetManifestResourceStream("LoupixDeck.Plugin.SpotifyPremium.icon.png");
+        if (stream == null) return null;
+
+        using MemoryStream buffer = new();
+        stream.CopyTo(buffer);
+        return buffer.ToArray();
+    }
 
     public override void Initialize(IPluginHost host)
     {
