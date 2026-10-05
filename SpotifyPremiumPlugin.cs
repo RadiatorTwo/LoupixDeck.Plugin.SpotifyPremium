@@ -28,6 +28,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
     private const int DefaultCallbackPort = 5543;
     private const string DefaultRedirectUri = "http://127.0.0.1:5543/callback";
     private const string DeveloperDashboardUrl = "https://developer.spotify.com/dashboard";
+    private const string SetupGuideUrl = "https://github.com/RadiatorTwo/LoupixDeck.Plugin.SpotifyPremium#setup";
     internal static readonly TimeSpan VolumeOverlayDuration = TimeSpan.FromMilliseconds(1500);
 
     private IPluginHost _host = null!;
@@ -189,13 +190,14 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
         "1. Press \"Open Spotify Dashboard\", sign in and click \"Create app\". Name and description are up to you.\n"
         + "2. Press \"Copy Redirect URI\" and paste it under \"Redirect URIs\" in the app. Tick \"Web API\" and save.\n"
         + "3. Copy Client ID and Client Secret from the app's settings into the fields below and press Save.\n"
-        + "4. Press \"Connect to Spotify\" and confirm in the browser. The README has a detailed guide.";
+        + "4. Press \"Connect to Spotify\" and confirm in the browser. \"Open Setup Guide\" shows a detailed guide.";
 
     public IReadOnlyList<PluginSettingAction> SettingsActions =>
     [
         _tokenStore?.HasToken == true ? DisconnectAction() : ConnectAction(),
         CopyRedirectUriAction(),
-        OpenDashboardAction()
+        OpenDashboardAction(),
+        OpenSetupGuideAction()
     ];
 
     public void OnSettingsSaved()
@@ -285,12 +287,16 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
         }
     };
 
-    private PluginSettingAction OpenDashboardAction() => new()
+    private PluginSettingAction OpenDashboardAction() => OpenUrlAction("Open Spotify Dashboard", DeveloperDashboardUrl);
+
+    private PluginSettingAction OpenSetupGuideAction() => OpenUrlAction("Open Setup Guide", SetupGuideUrl);
+
+    private PluginSettingAction OpenUrlAction(string label, string url) => new()
     {
-        Label = "Open Spotify Dashboard",
-        Invoke = () => Task.FromResult(_host.OpenBrowser(DeveloperDashboardUrl)
+        Label = label,
+        Invoke = () => Task.FromResult(_host.OpenBrowser(url)
             ? string.Empty
-            : PluginText.Format(_host, "Could not open the browser. Open {0} yourself.", DeveloperDashboardUrl))
+            : PluginText.Format(_host, "Could not open the browser. Open {0} yourself.", url))
     };
 
     // ---- IMenuContributor ----

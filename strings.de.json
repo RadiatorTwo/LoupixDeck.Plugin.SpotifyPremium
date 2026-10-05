@@ -5,7 +5,7 @@
   "Spotify is connected. Use \"Disconnect\" to remove the stored login.": "Spotify ist verbunden. „Trennen“ entfernt die gespeicherte Anmeldung.",
   "Follow the steps under \"Spotify app\", save, then press \"Connect to Spotify\".": "Folge den Schritten unter „Spotify-App“, speichere und drücke dann „Mit Spotify verbinden“.",
   "Spotify app": "Spotify-App",
-  "1. Press \"Open Spotify Dashboard\", sign in and click \"Create app\". Name and description are up to you.\n2. Press \"Copy Redirect URI\" and paste it under \"Redirect URIs\" in the app. Tick \"Web API\" and save.\n3. Copy Client ID and Client Secret from the app's settings into the fields below and press Save.\n4. Press \"Connect to Spotify\" and confirm in the browser. The README has a detailed guide.": "1. Drücke „Spotify-Dashboard öffnen“, melde dich an und klicke auf „Create app“. Name und Beschreibung sind beliebig.\n2. Drücke „Redirect-URI kopieren“ und füge sie in der App unter „Redirect URIs“ ein. Hake „Web API“ an und speichere.\n3. Kopiere Client ID und Client Secret aus den Einstellungen der App in die Felder unten und drücke Speichern.\n4. Drücke „Mit Spotify verbinden“ und bestätige im Browser. Eine ausführliche Anleitung steht in der README.",
+  "1. Press \"Open Spotify Dashboard\", sign in and click \"Create app\". Name and description are up to you.\n2. Press \"Copy Redirect URI\" and paste it under \"Redirect URIs\" in the app. Tick \"Web API\" and save.\n3. Copy Client ID and Client Secret from the app's settings into the fields below and press Save.\n4. Press \"Connect to Spotify\" and confirm in the browser. \"Open Setup Guide\" shows a detailed guide.": "1. Drücke „Spotify-Dashboard öffnen“, melde dich an und klicke auf „Create app“. Name und Beschreibung sind beliebig.\n2. Drücke „Redirect-URI kopieren“ und füge sie in der App unter „Redirect URIs“ ein. Hake „Web API“ an und speichere.\n3. Kopiere Client ID und Client Secret aus den Einstellungen der App in die Felder unten und drücke Speichern.\n4. Drücke „Mit Spotify verbinden“ und bestätige im Browser. „Einrichtungsanleitung öffnen“ zeigt eine ausführliche Anleitung.",
   "Client ID": "Client ID",
   "From the \"Basic Information\" page of your Spotify app": "Von der Seite „Basic Information“ deiner Spotify-App",
   "Client Secret": "Client Secret",
@@ -69,5 +69,6 @@
   "Shuffle is on": "Zufallswiedergabe ist an",
   "Repeat is off": "Wiederholen ist aus",
   "Repeats the playlist or album": "Wiederholt die Playlist oder das Album",
-  "Repeats the current track": "Wiederholt den aktuellen Song"
+  "Repeats the current track": "Wiederholt den aktuellen Song",
+  "Open Setup Guide": "Einrichtungsanleitung öffnen"
 }
