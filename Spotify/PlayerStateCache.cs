@@ -21,7 +21,19 @@ public sealed class PlayerStateCache : IDisposable
     // SetVolume, Spotify's /me/player can still report the old value for a
     // second or two — using the polled value would snap the UI backwards.
     private DateTime _lastLocalVolumeUtc = DateTime.MinValue;
-    private static readonly TimeSpan LocalVolumeTrustWindow = TimeSpan.FromSeconds(5);
+    // Same for play/pause: right after Pause/Resume the poll still reports
+    // the previous playback state.
+    private DateTime _lastLocalPlayingUtc = DateTime.MinValue;
+    private DateTime _lastLocalShuffleUtc = DateTime.MinValue;
+    private DateTime _lastLocalRepeatUtc = DateTime.MinValue;
+    // The like state is not part of /me/player: it is checked once per track
+    // and re-checked now and then, so a like made in the Spotify app shows up.
+    private string _likedTrackUri = string.Empty;
+    private bool _liked;
+    private DateTime _likedCheckedUtc = DateTime.MinValue;
+    private DateTime _lastLocalLikedUtc = DateTime.MinValue;
+    private static readonly TimeSpan LikedRecheckInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan LocalTrustWindow = TimeSpan.FromSeconds(5);
     // Track position lives outside the snapshot: it changes on every poll and
     // would otherwise fire Changed (and redraw every button) each time.
     private readonly object _progressGate = new();
@@ -60,6 +72,55 @@ public sealed class PlayerStateCache : IDisposable
     {
         _lastLocalVolumeUtc = DateTime.UtcNow;
         Update(State with { VolumePercent = Math.Clamp(percent, 0, 100) });
+    }
+
+    /// <summary>Pushes a locally-known shuffle state, see <see cref="ApplyLocalPlaying"/>.</summary>
+    public void ApplyLocalShuffle(bool enabled)
+    {
+        _lastLocalShuffleUtc = DateTime.UtcNow;
+        Update(State with { ShuffleEnabled = enabled });
+    }
+
+    /// <summary>Pushes a locally-known repeat state ("off", "context" or "track"), see <see cref="ApplyLocalPlaying"/>.</summary>
+    public void ApplyLocalRepeat(string repeatState)
+    {
+        _lastLocalRepeatUtc = DateTime.UtcNow;
+        Update(State with { RepeatState = repeatState });
+    }
+
+    /// <summary>
+    /// Pushes a locally-known like state for the current track into the
+    /// snapshot. Call it after a successful like/unlike call.
+    /// </summary>
+    public void ApplyLocalLiked(bool isLiked)
+    {
+        _likedTrackUri = State.TrackUri;
+        _liked = isLiked;
+        _likedCheckedUtc = DateTime.UtcNow;
+        _lastLocalLikedUtc = DateTime.UtcNow;
+        Update(State with { IsLiked = isLiked });
+    }
+
+    /// <summary>
+    /// Pushes a locally-known playback state into the snapshot, the play/pause
+    /// counterpart of <see cref="ApplyLocalVolume"/>. Call it after a successful
+    /// Pause/Resume call.
+    /// </summary>
+    public void ApplyLocalPlaying(bool isPlaying)
+    {
+        _lastLocalPlayingUtc = DateTime.UtcNow;
+        if (isPlaying != State.IsPlaying)
+        {
+            // Keep the position estimate continuous across the switch.
+            lock (_progressGate)
+            {
+                if (State.IsPlaying)
+                    _progressMs += (int)(DateTime.UtcNow - _progressAtUtc).TotalMilliseconds;
+                _progressAtUtc = DateTime.UtcNow;
+            }
+        }
+
+        Update(State with { IsPlaying = isPlaying });
     }
 
     /// <summary>
@@ -139,22 +200,32 @@ public sealed class PlayerStateCache : IDisposable
             // Within the trust window the local copy stays authoritative —
             // prevents the polled value from snapping the rotary backwards
             // when Spotify hasn't reflected our recent SetVolume yet.
-            var volume = DateTime.UtcNow - _lastLocalVolumeUtc < LocalVolumeTrustWindow
+            var volume = DateTime.UtcNow - _lastLocalVolumeUtc < LocalTrustWindow
                 ? State.VolumePercent
                 : polledVolume;
+            var isPlaying = DateTime.UtcNow - _lastLocalPlayingUtc < LocalTrustWindow
+                ? State.IsPlaying
+                : playback.IsPlaying;
+            var shuffle = DateTime.UtcNow - _lastLocalShuffleUtc < LocalTrustWindow
+                ? State.ShuffleEnabled
+                : playback.ShuffleState;
+            var repeat = DateTime.UtcNow - _lastLocalRepeatUtc < LocalTrustWindow
+                ? State.RepeatState
+                : playback.RepeatState ?? "off";
 
             var snap = new PlayerSnapshot
             {
-                IsPlaying = playback.IsPlaying,
-                ShuffleEnabled = playback.ShuffleState,
-                RepeatState = playback.RepeatState ?? "off",
+                IsPlaying = isPlaying,
+                ShuffleEnabled = shuffle,
+                RepeatState = repeat,
                 TrackId = track?.Id ?? string.Empty,
                 TrackUri = track?.Uri ?? string.Empty,
                 TrackName = track?.Name ?? string.Empty,
                 ArtistName = track?.Artists?.FirstOrDefault()?.Name ?? string.Empty,
                 DeviceId = playback.Device?.Id ?? string.Empty,
                 DeviceName = playback.Device?.Name ?? string.Empty,
-                VolumePercent = volume
+                VolumePercent = volume,
+                IsLiked = await ResolveLikedAsync(client, track?.Uri ?? string.Empty)
             };
 
             Update(snap);
@@ -167,6 +238,37 @@ public sealed class PlayerStateCache : IDisposable
         {
             _host.Logger.Error("PlayerState poll error", ex);
         }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="trackUri"/> is in the user's Liked Songs. Asks
+    /// Spotify only on a track change or after <see cref="LikedRecheckInterval"/>;
+    /// a local toggle stays authoritative for the trust window.
+    /// </summary>
+    private async Task<bool> ResolveLikedAsync(SpotifyAPI.Web.SpotifyClient client, string trackUri)
+    {
+        if (string.IsNullOrEmpty(trackUri)) return false;
+
+        bool sameTrack = trackUri == _likedTrackUri;
+        if (sameTrack && (DateTime.UtcNow - _lastLocalLikedUtc < LocalTrustWindow
+                          || DateTime.UtcNow - _likedCheckedUtc < LikedRecheckInterval))
+            return _liked;
+
+        try
+        {
+            var saved = await client.Library.CheckItems(new LibraryCheckItemsRequest(new[] { trackUri }));
+            _liked = saved is { Count: > 0 } && saved[0];
+        }
+        catch (APIException ex)
+        {
+            _host.Logger.Warn($"Like state check failed: {ex.Message}");
+            // Keep the last known value for this track, assume "not liked" for a new one.
+            if (!sameTrack) _liked = false;
+        }
+
+        _likedTrackUri = trackUri;
+        _likedCheckedUtc = DateTime.UtcNow;
+        return _liked;
     }
 
     private void Update(PlayerSnapshot snap)
@@ -197,6 +299,7 @@ public sealed record PlayerSnapshot
     public string DeviceId { get; init; } = string.Empty;
     public string DeviceName { get; init; } = string.Empty;
     public int VolumePercent { get; init; }
+    public bool IsLiked { get; init; }
 
     public static readonly PlayerSnapshot Empty = new();
 }

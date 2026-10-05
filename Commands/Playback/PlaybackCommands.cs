@@ -5,30 +5,38 @@ using SpotifyAPI.Web;
 
 namespace LoupixDeck.Plugin.SpotifyPremium.Commands.Playback;
 
-internal sealed class TogglePlaybackCommand : SpotifyCommandBase, IDisplayCommand
+internal sealed class TogglePlaybackCommand : SpotifyCommandBase, IDisplayImageCommand
 {
+    public const string Name = "SpotifyPremium.TogglePlayback";
+
     public TogglePlaybackCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
 
     public override CommandDescriptor Descriptor { get; } = new()
     {
-        CommandName = "SpotifyPremium.TogglePlayback",
+        CommandName = Name,
         DisplayName = "Toggle Play/Pause",
         Group = "Spotify Premium",
-        Icon = "\U000F040A",
+        Icon = SpotifyIcons.PlayPause,
+        ButtonLayout = SpotifyIcons.DrawnByCommand,
         Description = "Play or pause the current track",
+        States = SpotifyStates.Playback,
         HiddenFromMenu = true
     };
 
+    /// <summary>Changes arrive as pushes from the player cache; polling is only a safety net.</summary>
     public TimeSpan UpdateInterval => TimeSpan.FromSeconds(3);
-    public string GetText(CommandContext ctx) => Player.State.IsPlaying ? "▶ ❚❚" : "▶";
+
+    public static string StateOf(PlayerSnapshot state) => state.IsPlaying ? SpotifyStates.Playing : SpotifyStates.Paused;
+
+    // Like the Spotify app, the icon shows what a press does: pause while playing, play while paused.
+    public bool RenderImage(CommandContext ctx, IRenderCanvas canvas) =>
+        SpotifyStates.Resolve(ctx, Name, StateOf(Player.State)) == SpotifyStates.Playing
+            ? SpotifyStates.Draw(canvas, SpotifyIcons.PauseSymbol, PluginText.Tr(ctx.Host, "Playing"), SpotifyStates.Green)
+            : SpotifyStates.Draw(canvas, SpotifyIcons.PlaySymbol, PluginText.Tr(ctx.Host, "Paused"), SpotifyStates.Normal);
 
     protected override async Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
     {
-        var device = DeviceId(ctx, Player.State);
-        if (Player.State.IsPlaying)
-            await spotify.Player.PausePlayback(new PlayerPausePlaybackRequest { DeviceId = device });
-        else
-            await spotify.Player.ResumePlayback(new PlayerResumePlaybackRequest { DeviceId = device });
+        await TogglePlaybackAsync(spotify, DeviceId(ctx, Player.State));
     }
 }
 
@@ -41,7 +49,8 @@ internal sealed class NextTrackCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.NextTrack",
         DisplayName = "Next Track",
         Group = "Spotify Premium",
-        Icon = "\U000F04AD",
+        Icon = SpotifyIcons.Next,
+        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.Next, "Next"),
         Description = "Skip to the next track",
         HiddenFromMenu = true
     };
@@ -59,7 +68,8 @@ internal sealed class PreviousTrackCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.PreviousTrack",
         DisplayName = "Previous Track",
         Group = "Spotify Premium",
-        Icon = "\U000F04AE",
+        Icon = SpotifyIcons.Previous,
+        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.Previous, "Previous"),
         Description = "Skip to the previous track",
         HiddenFromMenu = true
     };
@@ -68,64 +78,95 @@ internal sealed class PreviousTrackCommand : SpotifyCommandBase
         => spotify.Player.SkipPrevious(new PlayerSkipPreviousRequest { DeviceId = DeviceId(ctx, Player.State) });
 }
 
-internal sealed class ShufflePlayCommand : SpotifyCommandBase, IDisplayCommand
+internal sealed class ShufflePlayCommand : SpotifyCommandBase, IDisplayImageCommand
 {
+    public const string Name = "SpotifyPremium.ShufflePlay";
+
     public ShufflePlayCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
 
     public override CommandDescriptor Descriptor { get; } = new()
     {
-        CommandName = "SpotifyPremium.ShufflePlay",
+        CommandName = Name,
         DisplayName = "Toggle Shuffle",
         Group = "Spotify Premium",
-        Icon = "\U000F049D",
+        Icon = SpotifyIcons.Shuffle,
+        ButtonLayout = SpotifyIcons.DrawnByCommand,
         Description = "Toggle shuffle playback",
+        States = SpotifyStates.Shuffle,
         HiddenFromMenu = true
     };
 
+    /// <summary>Changes arrive as pushes from the player cache; polling is only a safety net.</summary>
     public TimeSpan UpdateInterval => TimeSpan.FromSeconds(3);
-    public string GetText(CommandContext ctx) => Player.State.ShuffleEnabled ? "Shuffle ✓" : "Shuffle";
 
-    protected override Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
-        => spotify.Player.SetShuffle(new PlayerShuffleRequest(!Player.State.ShuffleEnabled)
+    public static string StateOf(PlayerSnapshot state) => state.ShuffleEnabled ? SpotifyStates.On : SpotifyStates.Off;
+
+    public bool RenderImage(CommandContext ctx, IRenderCanvas canvas) =>
+        SpotifyStates.Resolve(ctx, Name, StateOf(Player.State)) == SpotifyStates.On
+            ? SpotifyStates.Draw(canvas, SpotifyIcons.ShuffleSymbol, PluginText.Tr(ctx.Host, "Shuffle"), SpotifyStates.Green)
+            : SpotifyStates.Draw(canvas, SpotifyIcons.ShuffleOffSymbol, PluginText.Tr(ctx.Host, "Shuffle off"), SpotifyStates.Normal);
+
+    protected override async Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
+    {
+        bool enable = !Player.State.ShuffleEnabled;
+        await spotify.Player.SetShuffle(new PlayerShuffleRequest(enable)
         {
             DeviceId = DeviceId(ctx, Player.State)
         });
+        Player.ApplyLocalShuffle(enable);
+    }
 }
 
-internal sealed class ChangeRepeatStateCommand : SpotifyCommandBase, IDisplayCommand
+internal sealed class ChangeRepeatStateCommand : SpotifyCommandBase, IDisplayImageCommand
 {
+    public const string Name = "SpotifyPremium.ChangeRepeatState";
+
     public ChangeRepeatStateCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
 
     public override CommandDescriptor Descriptor { get; } = new()
     {
-        CommandName = "SpotifyPremium.ChangeRepeatState",
+        CommandName = Name,
         DisplayName = "Cycle Repeat Mode",
         Group = "Spotify Premium",
-        Icon = "\U000F0456",
+        Icon = SpotifyIcons.Repeat,
+        ButtonLayout = SpotifyIcons.DrawnByCommand,
         Description = "Cycle repeat off, all, one",
+        States = SpotifyStates.Repeat,
         HiddenFromMenu = true
     };
 
+    /// <summary>Changes arrive as pushes from the player cache; polling is only a safety net.</summary>
     public TimeSpan UpdateInterval => TimeSpan.FromSeconds(3);
-    public string GetText(CommandContext ctx) => Player.State.RepeatState switch
+
+    public static string StateOf(PlayerSnapshot state) => state.RepeatState switch
     {
-        "track" => "Repeat 1",
-        "context" => "Repeat ⟳",
-        _ => "Repeat off"
+        "track" => SpotifyStates.RepeatOne,
+        "context" => SpotifyStates.RepeatAll,
+        _ => SpotifyStates.Off
     };
 
-    protected override Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
-    {
-        var next = Player.State.RepeatState switch
+    public bool RenderImage(CommandContext ctx, IRenderCanvas canvas) =>
+        SpotifyStates.Resolve(ctx, Name, StateOf(Player.State)) switch
         {
-            "off" => PlayerSetRepeatRequest.State.Context,
-            "context" => PlayerSetRepeatRequest.State.Track,
-            _ => PlayerSetRepeatRequest.State.Off
+            SpotifyStates.RepeatOne => SpotifyStates.Draw(canvas, SpotifyIcons.RepeatOnceSymbol, PluginText.Tr(ctx.Host, "Repeat one"), SpotifyStates.Green),
+            SpotifyStates.RepeatAll => SpotifyStates.Draw(canvas, SpotifyIcons.RepeatSymbol, PluginText.Tr(ctx.Host, "Repeat all"), SpotifyStates.Green),
+            _ => SpotifyStates.Draw(canvas, SpotifyIcons.RepeatOffSymbol, PluginText.Tr(ctx.Host, "Repeat off"), SpotifyStates.Normal)
         };
-        return spotify.Player.SetRepeat(new PlayerSetRepeatRequest(next)
+
+    protected override async Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
+    {
+        // off -> all (context) -> one (track) -> off, like the Spotify app.
+        (PlayerSetRepeatRequest.State next, string nextName) = Player.State.RepeatState switch
+        {
+            "off" => (PlayerSetRepeatRequest.State.Context, "context"),
+            "context" => (PlayerSetRepeatRequest.State.Track, "track"),
+            _ => (PlayerSetRepeatRequest.State.Off, "off")
+        };
+        await spotify.Player.SetRepeat(new PlayerSetRepeatRequest(next)
         {
             DeviceId = DeviceId(ctx, Player.State)
         });
+        Player.ApplyLocalRepeat(nextName);
     }
 }
 
@@ -141,7 +182,7 @@ internal sealed class PlayNavigateLeftCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.PlayNavigate.Left",
         DisplayName = "Previous Track (Rotary Left)",
         Group = "Spotify Premium",
-        Icon = "\U000F04AE",
+        Icon = SpotifyIcons.Previous,
         Description = "Previous track on rotary left",
         HiddenFromMenu = true
     };
@@ -158,7 +199,7 @@ internal sealed class PlayNavigateRightCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.PlayNavigate.Right",
         DisplayName = "Next Track (Rotary Right)",
         Group = "Spotify Premium",
-        Icon = "\U000F04AD",
+        Icon = SpotifyIcons.Next,
         Description = "Next track on rotary right",
         HiddenFromMenu = true
     };
@@ -175,7 +216,7 @@ internal sealed class PlayAndNavigateAdjustment : SpotifyCommandBase, IAdjustmen
         CommandName = "SpotifyPremium.PlayAndNavigate",
         DisplayName = "Track Navigation (Adjustment)",
         Group = "Spotify Premium",
-        Icon = "\U000F04AD",
+        Icon = SpotifyIcons.TrackNavigation,
         Description = "Rotary track navigation with press to play",
         HiddenFromMenu = true
     };
@@ -194,10 +235,7 @@ internal sealed class PlayAndNavigateAdjustment : SpotifyCommandBase, IAdjustmen
     public async Task ApplyReset(CommandContext ctx)
     {
         var s = await Client.GetClientAsync(); if (s == null) return;
-        if (Player.State.IsPlaying)
-            await s.Player.PausePlayback(new PlayerPausePlaybackRequest { DeviceId = Player.State.DeviceId });
-        else
-            await s.Player.ResumePlayback(new PlayerResumePlaybackRequest { DeviceId = Player.State.DeviceId });
+        await TogglePlaybackAsync(s, Player.State.DeviceId);
     }
 
     public string? GetValueText(CommandContext ctx) => Player.State.TrackName;

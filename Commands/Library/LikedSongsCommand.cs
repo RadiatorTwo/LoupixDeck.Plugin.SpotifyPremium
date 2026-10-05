@@ -21,7 +21,8 @@ internal sealed class PlayLikedSongsCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.PlayLikedSongs",
         DisplayName = "Play Liked Songs",
         Group = "Spotify Premium",
-        Icon = "\U000F02D1",
+        Icon = SpotifyIcons.LikedSongs,
+        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.LikedSongs, "Liked Songs"),
         Description = "Start playback of your Liked Songs",
         HiddenFromMenu = true
     };
@@ -35,5 +36,6 @@ internal sealed class PlayLikedSongsCommand : SpotifyCommandBase
             ContextUri = $"spotify:user:{_userId}:collection",
             DeviceId = DeviceId(ctx, Player.State)
         });
+        Player.ApplyLocalPlaying(true);
     }
 }

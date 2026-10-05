@@ -5,27 +5,33 @@ using SpotifyAPI.Web;
 
 namespace LoupixDeck.Plugin.SpotifyPremium.Commands.Library;
 
-internal sealed class ToggleLikeCommand : SpotifyCommandBase, IDisplayCommand
+internal sealed class ToggleLikeCommand : SpotifyCommandBase, IDisplayImageCommand
 {
+    public const string Name = "SpotifyPremium.ToggleLike";
+
     public ToggleLikeCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
 
     public override CommandDescriptor Descriptor { get; } = new()
     {
-        CommandName = "SpotifyPremium.ToggleLike",
+        CommandName = Name,
         DisplayName = "Toggle Like",
         Group = "Spotify Premium",
-        Icon = "\U000F02D1",
+        Icon = SpotifyIcons.Like,
+        ButtonLayout = SpotifyIcons.DrawnByCommand,
         Description = "Like or unlike the current track",
+        States = SpotifyStates.Like,
         HiddenFromMenu = true
     };
 
+    /// <summary>Changes arrive as pushes from the player cache; polling is only a safety net.</summary>
     public TimeSpan UpdateInterval => TimeSpan.FromSeconds(5);
 
-    // The cached snapshot doesn't hold the like state — only render a stable
-    // glyph that reflects "we'd toggle the current track". Refreshed when the
-    // user actually presses (via PlayerStateCache.RefreshNowAsync).
-    public string GetText(CommandContext ctx)
-        => string.IsNullOrEmpty(Player.State.TrackId) ? "♥" : "♥";
+    public static string StateOf(PlayerSnapshot state) => state.IsLiked ? SpotifyStates.Liked : SpotifyStates.NotLiked;
+
+    public bool RenderImage(CommandContext ctx, IRenderCanvas canvas) =>
+        SpotifyStates.Resolve(ctx, Name, StateOf(Player.State)) == SpotifyStates.Liked
+            ? SpotifyStates.Draw(canvas, SpotifyIcons.HeartSymbol, PluginText.Tr(ctx.Host, "Liked"), SpotifyStates.Green)
+            : SpotifyStates.Draw(canvas, SpotifyIcons.HeartOutlineSymbol, PluginText.Tr(ctx.Host, "Like"), SpotifyStates.Normal);
 
     protected override async Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
     {
@@ -43,11 +49,18 @@ internal sealed class ToggleLikeCommand : SpotifyCommandBase, IDisplayCommand
         if (api == null) return;
         var query = new Dictionary<string, string> { ["uris"] = trackUri };
 
+        // Ask Spotify rather than trusting the cache: the track may have been
+        // liked elsewhere since the last check.
         var saved = await spotify.Library.CheckItems(new LibraryCheckItemsRequest(new[] { trackUri }));
-        if (saved is { Count: > 0 } && saved[0])
+        bool wasLiked = saved is { Count: > 0 } && saved[0];
+        if (wasLiked)
             await api.Delete(SpotifyUrls.Library(), query, null, CancellationToken.None);
         else
             await api.Put(SpotifyUrls.Library(), query, null, CancellationToken.None);
+
+        // Only if the track is still the one we toggled.
+        if (Player.State.TrackUri == trackUri)
+            Player.ApplyLocalLiked(!wasLiked);
     }
 }
 
@@ -65,7 +78,8 @@ internal sealed class SaveToPlaylistCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.SaveToPlaylist",
         DisplayName = "Add Track to Playlist",
         Group = "Spotify Premium",
-        Icon = "\U000F0415",
+        Icon = SpotifyIcons.AddToPlaylist,
+        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.AddToPlaylist, "Add to Playlist"),
         Description = "Add the current track to a playlist",
         ParameterTemplate = "({PlaylistId})",
         Parameters = [new CommandParameter("PlaylistId", typeof(string))],
