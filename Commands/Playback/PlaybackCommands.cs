@@ -5,23 +5,34 @@ using SpotifyAPI.Web;
 
 namespace LoupixDeck.Plugin.SpotifyPremium.Commands.Playback;
 
-internal sealed class TogglePlaybackCommand : SpotifyCommandBase, IDisplayCommand
+internal sealed class TogglePlaybackCommand : SpotifyCommandBase, IDisplayImageCommand
 {
+    public const string Name = "SpotifyPremium.TogglePlayback";
+
     public TogglePlaybackCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
 
     public override CommandDescriptor Descriptor { get; } = new()
     {
-        CommandName = "SpotifyPremium.TogglePlayback",
+        CommandName = Name,
         DisplayName = "Toggle Play/Pause",
         Group = "Spotify Premium",
         Icon = SpotifyIcons.PlayPause,
-        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.PlayPause, "Play/Pause"),
+        ButtonLayout = SpotifyIcons.DrawnByCommand,
         Description = "Play or pause the current track",
+        States = SpotifyStates.Playback,
         HiddenFromMenu = true
     };
 
+    /// <summary>Changes arrive as pushes from the player cache; polling is only a safety net.</summary>
     public TimeSpan UpdateInterval => TimeSpan.FromSeconds(3);
-    public string GetText(CommandContext ctx) => Player.State.IsPlaying ? "▶ ❚❚" : "▶";
+
+    public static string StateOf(PlayerSnapshot state) => state.IsPlaying ? SpotifyStates.Playing : SpotifyStates.Paused;
+
+    // Like the Spotify app, the icon shows what a press does: pause while playing, play while paused.
+    public bool RenderImage(CommandContext ctx, IRenderCanvas canvas) =>
+        SpotifyStates.Resolve(ctx, Name, StateOf(Player.State)) == SpotifyStates.Playing
+            ? SpotifyStates.Draw(canvas, SpotifyIcons.PauseSymbol, PluginText.Tr(ctx.Host, "Playing"), SpotifyStates.Green)
+            : SpotifyStates.Draw(canvas, SpotifyIcons.PlaySymbol, PluginText.Tr(ctx.Host, "Paused"), SpotifyStates.Normal);
 
     protected override async Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
     {

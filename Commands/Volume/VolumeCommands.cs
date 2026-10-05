@@ -48,21 +48,35 @@ internal sealed class UnmuteCommand : SpotifyCommandBase
     }
 }
 
-internal sealed class ToggleMuteCommand : SpotifyCommandBase, IDisplayCommand
+internal sealed class ToggleMuteCommand : SpotifyCommandBase, IDisplayImageCommand
 {
+    public const string Name = "SpotifyPremium.ToggleMute";
+
     public ToggleMuteCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
     public override CommandDescriptor Descriptor { get; } = new()
     {
-        CommandName = "SpotifyPremium.ToggleMute",
+        CommandName = Name,
         DisplayName = "Toggle Mute",
         Group = "Spotify Premium",
         Icon = SpotifyIcons.ToggleMute,
-        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.ToggleMute, "Mute"),
+        ButtonLayout = SpotifyIcons.DrawnByCommand,
         Description = "Toggle mute on and off",
+        States = SpotifyStates.Mute,
         HiddenFromMenu = true
     };
+
+    /// <summary>Changes arrive as pushes from the player cache; polling is only a safety net.</summary>
     public TimeSpan UpdateInterval => TimeSpan.FromSeconds(3);
-    public string GetText(CommandContext ctx) => Player.State.VolumePercent == 0 ? "🔇" : $"🔊 {Player.State.VolumePercent}%";
+
+    public static string StateOf(PlayerSnapshot state) => state.VolumePercent == 0 ? SpotifyStates.Muted : SpotifyStates.Unmuted;
+
+    public bool RenderImage(CommandContext ctx, IRenderCanvas canvas)
+    {
+        PlayerSnapshot state = Player.State;
+        return SpotifyStates.Resolve(ctx, Name, StateOf(state)) == SpotifyStates.Muted
+            ? SpotifyStates.Draw(canvas, SpotifyIcons.VolumeOffSymbol, PluginText.Tr(ctx.Host, "Muted"), SpotifyStates.Red)
+            : SpotifyStates.Draw(canvas, SpotifyIcons.VolumeSymbol, $"{state.VolumePercent}%", SpotifyStates.Normal);
+    }
 
     protected override Task Run(SpotifyAPI.Web.SpotifyClient s, CommandContext ctx)
     {

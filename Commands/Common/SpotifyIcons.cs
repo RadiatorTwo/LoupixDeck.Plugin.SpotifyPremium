@@ -38,16 +38,25 @@ internal static class SpotifyIcons
     public const string VolumeDown = "\U000F075E";         // mdi-volume-minus
     public const string VolumeDial = "\U000F057E";         // mdi-volume-high
 
+    // Symbol names for IRenderCanvas.DrawSymbol (the stateful commands draw their own icon).
+    public const string PlaySymbol = "play";
+    public const string PauseSymbol = "pause";
+    public const string VolumeSymbol = "volume-high";
+    public const string VolumeOffSymbol = "volume-off";
+
     // Pixel values for a 90 px key; the host scales them onto the key actually being written.
-    private const double IconScale = 0.5;
-    private const int IconOffsetY = -9;
-    private const int CaptionSize = 11;
-    private const int CaptionOffsetY = 27;
-    private const int CaptionBoxWidth = 88;
-    private const int CaptionBoxHeight = 22;
+    internal const double IconScale = 0.5;
+    internal const int IconOffsetY = -9;
+    internal const int CaptionSize = 11;
+    internal const int CaptionOffsetY = 27;
+    internal const int CaptionBoxWidth = 88;
+    internal const int CaptionBoxHeight = 22;
 
     /// <summary>Set to the host's translator in Initialize, before the commands are created.</summary>
     internal static Func<string, string> Translate { get; set; } = static english => english;
+
+    /// <summary>For commands that draw the whole key per state: no static layers underneath.</summary>
+    public static ButtonLayoutDescriptor DrawnByCommand { get; } = new() { Mode = ButtonLayoutMode.None };
 
     /// <summary>
     /// The icon with a short caption below it. A display command's runtime text replaces the

@@ -37,7 +37,6 @@
   "Connected to Spotify.": "Mit Spotify verbunden.",
   "Error: {0}": "Fehler: {0}",
   "Connect": "Verbinden",
-  "Play/Pause": "Play/Pause",
   "Next": "Weiter",
   "Previous": "Zurück",
   "Shuffle": "Zufall",
@@ -52,5 +51,12 @@
   "Devices": "Geräte",
   "Mute": "Stumm",
   "Unmute": "Ton an",
-  "Volume": "Lautstärke"
+  "Volume": "Lautstärke",
+  "Paused": "Pausiert",
+  "Playing": "Spielt",
+  "Muted": "Stumm",
+  "Playback is paused": "Wiedergabe ist pausiert",
+  "Spotify is playing": "Spotify spielt",
+  "Spotify is audible": "Spotify ist hörbar",
+  "Spotify volume is 0": "Spotify-Lautstärke ist 0"
 }
