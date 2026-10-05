@@ -36,5 +36,6 @@ internal sealed class PlayLikedSongsCommand : SpotifyCommandBase
             ContextUri = $"spotify:user:{_userId}:collection",
             DeviceId = DeviceId(ctx, Player.State)
         });
+        Player.ApplyLocalPlaying(true);
     }
 }

@@ -36,11 +36,7 @@ internal sealed class TogglePlaybackCommand : SpotifyCommandBase, IDisplayImageC
 
     protected override async Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
     {
-        var device = DeviceId(ctx, Player.State);
-        if (Player.State.IsPlaying)
-            await spotify.Player.PausePlayback(new PlayerPausePlaybackRequest { DeviceId = device });
-        else
-            await spotify.Player.ResumePlayback(new PlayerResumePlaybackRequest { DeviceId = device });
+        await TogglePlaybackAsync(spotify, DeviceId(ctx, Player.State));
     }
 }
 
@@ -210,10 +206,7 @@ internal sealed class PlayAndNavigateAdjustment : SpotifyCommandBase, IAdjustmen
     public async Task ApplyReset(CommandContext ctx)
     {
         var s = await Client.GetClientAsync(); if (s == null) return;
-        if (Player.State.IsPlaying)
-            await s.Player.PausePlayback(new PlayerPausePlaybackRequest { DeviceId = Player.State.DeviceId });
-        else
-            await s.Player.ResumePlayback(new PlayerResumePlaybackRequest { DeviceId = Player.State.DeviceId });
+        await TogglePlaybackAsync(s, Player.State.DeviceId);
     }
 
     public string? GetValueText(CommandContext ctx) => Player.State.TrackName;

@@ -118,10 +118,7 @@ internal sealed class SeekAdjustment : SpotifyCommandBase, IAdjustmentCommand
     {
         // Press = play/pause toggle, matching the other adjustments.
         var s = await Client.GetClientAsync(); if (s == null) return;
-        if (Player.State.IsPlaying)
-            await s.Player.PausePlayback(new PlayerPausePlaybackRequest { DeviceId = Player.State.DeviceId });
-        else
-            await s.Player.ResumePlayback(new PlayerResumePlaybackRequest { DeviceId = Player.State.DeviceId });
+        await TogglePlaybackAsync(s, Player.State.DeviceId);
     }
 
     public string? GetValueText(CommandContext ctx)

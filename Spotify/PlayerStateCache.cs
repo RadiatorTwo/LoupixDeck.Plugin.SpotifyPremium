@@ -21,7 +21,10 @@ public sealed class PlayerStateCache : IDisposable
     // SetVolume, Spotify's /me/player can still report the old value for a
     // second or two — using the polled value would snap the UI backwards.
     private DateTime _lastLocalVolumeUtc = DateTime.MinValue;
-    private static readonly TimeSpan LocalVolumeTrustWindow = TimeSpan.FromSeconds(5);
+    // Same for play/pause: right after Pause/Resume the poll still reports
+    // the previous playback state.
+    private DateTime _lastLocalPlayingUtc = DateTime.MinValue;
+    private static readonly TimeSpan LocalTrustWindow = TimeSpan.FromSeconds(5);
     // Track position lives outside the snapshot: it changes on every poll and
     // would otherwise fire Changed (and redraw every button) each time.
     private readonly object _progressGate = new();
@@ -60,6 +63,28 @@ public sealed class PlayerStateCache : IDisposable
     {
         _lastLocalVolumeUtc = DateTime.UtcNow;
         Update(State with { VolumePercent = Math.Clamp(percent, 0, 100) });
+    }
+
+    /// <summary>
+    /// Pushes a locally-known playback state into the snapshot, the play/pause
+    /// counterpart of <see cref="ApplyLocalVolume"/>. Call it after a successful
+    /// Pause/Resume call.
+    /// </summary>
+    public void ApplyLocalPlaying(bool isPlaying)
+    {
+        _lastLocalPlayingUtc = DateTime.UtcNow;
+        if (isPlaying != State.IsPlaying)
+        {
+            // Keep the position estimate continuous across the switch.
+            lock (_progressGate)
+            {
+                if (State.IsPlaying)
+                    _progressMs += (int)(DateTime.UtcNow - _progressAtUtc).TotalMilliseconds;
+                _progressAtUtc = DateTime.UtcNow;
+            }
+        }
+
+        Update(State with { IsPlaying = isPlaying });
     }
 
     /// <summary>
@@ -139,13 +164,16 @@ public sealed class PlayerStateCache : IDisposable
             // Within the trust window the local copy stays authoritative —
             // prevents the polled value from snapping the rotary backwards
             // when Spotify hasn't reflected our recent SetVolume yet.
-            var volume = DateTime.UtcNow - _lastLocalVolumeUtc < LocalVolumeTrustWindow
+            var volume = DateTime.UtcNow - _lastLocalVolumeUtc < LocalTrustWindow
                 ? State.VolumePercent
                 : polledVolume;
+            var isPlaying = DateTime.UtcNow - _lastLocalPlayingUtc < LocalTrustWindow
+                ? State.IsPlaying
+                : playback.IsPlaying;
 
             var snap = new PlayerSnapshot
             {
-                IsPlaying = playback.IsPlaying,
+                IsPlaying = isPlaying,
                 ShuffleEnabled = playback.ShuffleState,
                 RepeatState = playback.RepeatState ?? "off",
                 TrackId = track?.Id ?? string.Empty,

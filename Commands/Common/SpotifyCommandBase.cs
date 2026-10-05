@@ -53,6 +53,32 @@ internal abstract class SpotifyCommandBase : IPluginCommand
 
     protected abstract Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx);
 
+    /// <summary>
+    /// Pauses while playing, resumes otherwise, and takes the new state into
+    /// the cache right away so play/pause buttons switch without waiting for
+    /// Spotify to report it.
+    /// </summary>
+    protected async Task TogglePlaybackAsync(SpotifyAPI.Web.SpotifyClient spotify, string? deviceId)
+    {
+        if (Player.State.IsPlaying)
+        {
+            await spotify.Player.PausePlayback(new PlayerPausePlaybackRequest { DeviceId = deviceId });
+            Player.ApplyLocalPlaying(false);
+        }
+        else
+        {
+            await spotify.Player.ResumePlayback(new PlayerResumePlaybackRequest { DeviceId = deviceId });
+            Player.ApplyLocalPlaying(true);
+        }
+    }
+
+    /// <summary>Sets the volume and takes it into the cache right away.</summary>
+    protected async Task SetVolumeAsync(SpotifyAPI.Web.SpotifyClient spotify, int percent, string? deviceId)
+    {
+        await spotify.Player.SetVolume(new PlayerVolumeRequest(percent) { DeviceId = deviceId });
+        Player.ApplyLocalVolume(percent);
+    }
+
     protected static string? DeviceId(CommandContext ctx, PlayerSnapshot state)
     {
         return string.IsNullOrEmpty(state.DeviceId) ? null : state.DeviceId;

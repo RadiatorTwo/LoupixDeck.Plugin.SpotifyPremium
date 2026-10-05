@@ -165,5 +165,6 @@ internal sealed class StartAlbumCommand : SpotifyCommandBase
             ContextUri = albumUri,
             DeviceId = DeviceId(ctx, Player.State)
         });
+        Player.ApplyLocalPlaying(true);
     }
 }

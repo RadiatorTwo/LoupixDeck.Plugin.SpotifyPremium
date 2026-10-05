@@ -24,7 +24,7 @@ internal sealed class MuteCommand : SpotifyCommandBase
         // Remember the previous level so Unmute can restore it.
         ctx.Host.Settings.Set("last_volume", (long)Math.Max(Player.State.VolumePercent, 1));
         ctx.Host.Settings.Save();
-        return s.Player.SetVolume(new PlayerVolumeRequest(0) { DeviceId = DeviceId(ctx, Player.State) });
+        return SetVolumeAsync(s, 0, DeviceId(ctx, Player.State));
     }
 }
 
@@ -44,7 +44,7 @@ internal sealed class UnmuteCommand : SpotifyCommandBase
     protected override Task Run(SpotifyAPI.Web.SpotifyClient s, CommandContext ctx)
     {
         var target = (int)Math.Clamp(ctx.Host.Settings.Get<long>("last_volume", 50), 1, 100);
-        return s.Player.SetVolume(new PlayerVolumeRequest(target) { DeviceId = DeviceId(ctx, Player.State) });
+        return SetVolumeAsync(s, target, DeviceId(ctx, Player.State));
     }
 }
 
@@ -84,11 +84,11 @@ internal sealed class ToggleMuteCommand : SpotifyCommandBase, IDisplayImageComma
         {
             ctx.Host.Settings.Set("last_volume", (long)Player.State.VolumePercent);
             ctx.Host.Settings.Save();
-            return s.Player.SetVolume(new PlayerVolumeRequest(0) { DeviceId = DeviceId(ctx, Player.State) });
+            return SetVolumeAsync(s, 0, DeviceId(ctx, Player.State));
         }
 
         var restore = (int)Math.Clamp(ctx.Host.Settings.Get<long>("last_volume", 50), 1, 100);
-        return s.Player.SetVolume(new PlayerVolumeRequest(restore) { DeviceId = DeviceId(ctx, Player.State) });
+        return SetVolumeAsync(s, restore, DeviceId(ctx, Player.State));
     }
 }
 
@@ -113,7 +113,7 @@ internal sealed class DirectVolumeCommand : SpotifyCommandBase
         if (ctx.Parameters.Length == 0 || !int.TryParse(ctx.Parameters[0], out var raw))
             return Task.CompletedTask;
         var clamped = Math.Clamp(raw, 0, 100);
-        return s.Player.SetVolume(new PlayerVolumeRequest(clamped) { DeviceId = DeviceId(ctx, Player.State) });
+        return SetVolumeAsync(s, clamped, DeviceId(ctx, Player.State));
     }
 }
 
@@ -307,17 +307,14 @@ internal sealed class SpotifyVolumeAdjustment : SpotifyCommandBase, IAdjustmentC
     {
         var s = await Client.GetClientAsync(); if (s == null) return;
         var target = Math.Clamp(Player.State.VolumePercent + ticks * 2, 0, 100);
-        await s.Player.SetVolume(new PlayerVolumeRequest(target) { DeviceId = Player.State.DeviceId });
+        await SetVolumeAsync(s, target, Player.State.DeviceId);
     }
 
     public async Task ApplyReset(CommandContext ctx)
     {
         // Press = play/pause toggle, matching the Loupedeck original.
         var s = await Client.GetClientAsync(); if (s == null) return;
-        if (Player.State.IsPlaying)
-            await s.Player.PausePlayback(new PlayerPausePlaybackRequest { DeviceId = Player.State.DeviceId });
-        else
-            await s.Player.ResumePlayback(new PlayerResumePlaybackRequest { DeviceId = Player.State.DeviceId });
+        await TogglePlaybackAsync(s, Player.State.DeviceId);
     }
 
     public string? GetValueText(CommandContext ctx) => $"{Player.State.VolumePercent}%";
