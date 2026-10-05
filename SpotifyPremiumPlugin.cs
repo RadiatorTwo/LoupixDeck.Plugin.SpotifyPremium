@@ -1,4 +1,5 @@
 using LoupixDeck.Plugin.SpotifyPremium.Commands.Auth;
+using LoupixDeck.Plugin.SpotifyPremium.Commands.Common;
 using LoupixDeck.Plugin.SpotifyPremium.Commands.Library;
 using LoupixDeck.Plugin.SpotifyPremium.Commands.Playback;
 using LoupixDeck.Plugin.SpotifyPremium.Commands.Playlists;
@@ -62,6 +63,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
     {
         _host = host;
         MigrateCallbackPort();
+        SpotifyIcons.Translate = english => PluginText.Tr(host, english);
         _tokenStore = new TokenStore(host.Settings);
         _auth = new SpotifyAuth(host, _tokenStore);
 
@@ -116,7 +118,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
         {
             Group = "Spotify Premium",
             Description = "Playback and library control",
-            Icon = "\U000F075A",
+            Icon = SpotifyIcons.Plugin,
             Section = CommandGroupSection.Plugins
         }
     ];

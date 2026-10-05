@@ -14,7 +14,8 @@ internal sealed class MuteCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.Mute",
         DisplayName = "Mute",
         Group = "Spotify Premium",
-        Icon = "\U000F075F",
+        Icon = SpotifyIcons.Mute,
+        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.Mute, "Mute"),
         Description = "Mute playback volume",
         HiddenFromMenu = true
     };
@@ -35,7 +36,8 @@ internal sealed class UnmuteCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.Unmute",
         DisplayName = "Unmute",
         Group = "Spotify Premium",
-        Icon = "\U000F057E",
+        Icon = SpotifyIcons.Unmute,
+        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.Unmute, "Unmute"),
         Description = "Restore volume from mute",
         HiddenFromMenu = true
     };
@@ -54,7 +56,8 @@ internal sealed class ToggleMuteCommand : SpotifyCommandBase, IDisplayCommand
         CommandName = "SpotifyPremium.ToggleMute",
         DisplayName = "Toggle Mute",
         Group = "Spotify Premium",
-        Icon = "\U000F075F",
+        Icon = SpotifyIcons.ToggleMute,
+        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.ToggleMute, "Mute"),
         Description = "Toggle mute on and off",
         HiddenFromMenu = true
     };
@@ -83,7 +86,8 @@ internal sealed class DirectVolumeCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.DirectVolume",
         DisplayName = "Set Volume",
         Group = "Spotify Premium",
-        Icon = "\U000F057E",
+        Icon = SpotifyIcons.Volume,
+        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.Volume, "Volume"),
         Description = "Set volume to a fixed level",
         ParameterTemplate = "({Volume})",
         Parameters = [new CommandParameter("Volume", typeof(int)) { DefaultValue = "50" }],
@@ -245,7 +249,7 @@ internal sealed class VolumeUpCommand : VolumeStepBase
         CommandName = "SpotifyPremium.VolumeUp",
         DisplayName = "Volume Up",
         Group = "Spotify Premium",
-        Icon = "\U000F0415",
+        Icon = SpotifyIcons.VolumeUp,
         Description = "Increase volume by a step",
         ParameterTemplate = "({Step})",
         Parameters = [new CommandParameter("Step", typeof(int)) { DefaultValue = "2" }],
@@ -262,7 +266,7 @@ internal sealed class VolumeDownCommand : VolumeStepBase
         CommandName = "SpotifyPremium.VolumeDown",
         DisplayName = "Volume Down",
         Group = "Spotify Premium",
-        Icon = "\U000F0374",
+        Icon = SpotifyIcons.VolumeDown,
         Description = "Decrease volume by a step",
         ParameterTemplate = "({Step})",
         Parameters = [new CommandParameter("Step", typeof(int)) { DefaultValue = "2" }],
@@ -278,7 +282,7 @@ internal sealed class SpotifyVolumeAdjustment : SpotifyCommandBase, IAdjustmentC
         CommandName = "SpotifyPremium.VolumeAdjustment",
         DisplayName = "Volume (Adjustment)",
         Group = "Spotify Premium",
-        Icon = "\U000F057E",
+        Icon = SpotifyIcons.VolumeDial,
         Description = "Adjust volume with a rotary encoder",
         HiddenFromMenu = true
     };

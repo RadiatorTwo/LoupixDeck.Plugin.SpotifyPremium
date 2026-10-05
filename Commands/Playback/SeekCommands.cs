@@ -59,7 +59,7 @@ internal sealed class SeekForwardCommand : SeekStepBase
         CommandName = "SpotifyPremium.SeekForward",
         DisplayName = "Seek Forward",
         Group = "Spotify Premium",
-        Icon = "\U000F0211",
+        Icon = SpotifyIcons.SeekForward,
         Description = "Jump forward in the current track",
         ParameterTemplate = "({Seconds})",
         Parameters = [new CommandParameter("Seconds", typeof(int)) { DefaultValue = "10" }],
@@ -76,7 +76,7 @@ internal sealed class SeekBackwardCommand : SeekStepBase
         CommandName = "SpotifyPremium.SeekBackward",
         DisplayName = "Seek Backward",
         Group = "Spotify Premium",
-        Icon = "\U000F045F",
+        Icon = SpotifyIcons.SeekBackward,
         Description = "Jump back in the current track",
         ParameterTemplate = "({Seconds})",
         Parameters = [new CommandParameter("Seconds", typeof(int)) { DefaultValue = "10" }],
@@ -94,7 +94,7 @@ internal sealed class SeekAdjustment : SpotifyCommandBase, IAdjustmentCommand
         CommandName = "SpotifyPremium.SeekAdjustment",
         DisplayName = "Seek (Adjustment)",
         Group = "Spotify Premium",
-        Icon = "\U000F0211",
+        Icon = SpotifyIcons.Seek,
         Description = "Scrub through the current track with a rotary encoder",
         HiddenFromMenu = true
     };

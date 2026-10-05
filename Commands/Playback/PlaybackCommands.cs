@@ -14,7 +14,8 @@ internal sealed class TogglePlaybackCommand : SpotifyCommandBase, IDisplayComman
         CommandName = "SpotifyPremium.TogglePlayback",
         DisplayName = "Toggle Play/Pause",
         Group = "Spotify Premium",
-        Icon = "\U000F040A",
+        Icon = SpotifyIcons.PlayPause,
+        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.PlayPause, "Play/Pause"),
         Description = "Play or pause the current track",
         HiddenFromMenu = true
     };
@@ -41,7 +42,8 @@ internal sealed class NextTrackCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.NextTrack",
         DisplayName = "Next Track",
         Group = "Spotify Premium",
-        Icon = "\U000F04AD",
+        Icon = SpotifyIcons.Next,
+        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.Next, "Next"),
         Description = "Skip to the next track",
         HiddenFromMenu = true
     };
@@ -59,7 +61,8 @@ internal sealed class PreviousTrackCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.PreviousTrack",
         DisplayName = "Previous Track",
         Group = "Spotify Premium",
-        Icon = "\U000F04AE",
+        Icon = SpotifyIcons.Previous,
+        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.Previous, "Previous"),
         Description = "Skip to the previous track",
         HiddenFromMenu = true
     };
@@ -77,7 +80,8 @@ internal sealed class ShufflePlayCommand : SpotifyCommandBase, IDisplayCommand
         CommandName = "SpotifyPremium.ShufflePlay",
         DisplayName = "Toggle Shuffle",
         Group = "Spotify Premium",
-        Icon = "\U000F049D",
+        Icon = SpotifyIcons.Shuffle,
+        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.Shuffle, "Shuffle"),
         Description = "Toggle shuffle playback",
         HiddenFromMenu = true
     };
@@ -101,7 +105,8 @@ internal sealed class ChangeRepeatStateCommand : SpotifyCommandBase, IDisplayCom
         CommandName = "SpotifyPremium.ChangeRepeatState",
         DisplayName = "Cycle Repeat Mode",
         Group = "Spotify Premium",
-        Icon = "\U000F0456",
+        Icon = SpotifyIcons.Repeat,
+        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.Repeat, "Repeat"),
         Description = "Cycle repeat off, all, one",
         HiddenFromMenu = true
     };
@@ -141,7 +146,7 @@ internal sealed class PlayNavigateLeftCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.PlayNavigate.Left",
         DisplayName = "Previous Track (Rotary Left)",
         Group = "Spotify Premium",
-        Icon = "\U000F04AE",
+        Icon = SpotifyIcons.Previous,
         Description = "Previous track on rotary left",
         HiddenFromMenu = true
     };
@@ -158,7 +163,7 @@ internal sealed class PlayNavigateRightCommand : SpotifyCommandBase
         CommandName = "SpotifyPremium.PlayNavigate.Right",
         DisplayName = "Next Track (Rotary Right)",
         Group = "Spotify Premium",
-        Icon = "\U000F04AD",
+        Icon = SpotifyIcons.Next,
         Description = "Next track on rotary right",
         HiddenFromMenu = true
     };
@@ -175,7 +180,7 @@ internal sealed class PlayAndNavigateAdjustment : SpotifyCommandBase, IAdjustmen
         CommandName = "SpotifyPremium.PlayAndNavigate",
         DisplayName = "Track Navigation (Adjustment)",
         Group = "Spotify Premium",
-        Icon = "\U000F04AD",
+        Icon = SpotifyIcons.TrackNavigation,
         Description = "Rotary track navigation with press to play",
         HiddenFromMenu = true
     };

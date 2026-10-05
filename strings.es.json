@@ -35,5 +35,22 @@
   "Spotify error: {0}": "Error de Spotify: {0}",
   "No authorization code received.": "No se recibió ningún código de autorización.",
   "Connected to Spotify.": "Conectado a Spotify.",
-  "Error: {0}": "Error: {0}"
+  "Error: {0}": "Error: {0}",
+  "Connect": "Conectar",
+  "Play/Pause": "Play/Pausa",
+  "Next": "Siguiente",
+  "Previous": "Anterior",
+  "Shuffle": "Aleatorio",
+  "Repeat": "Repetir",
+  "Queue": "Cola",
+  "Like": "Me gusta",
+  "Liked Songs": "Tus me gusta",
+  "Add to Playlist": "A la playlist",
+  "Remove": "Quitar",
+  "Playlist": "Playlist",
+  "Album": "Álbum",
+  "Devices": "Dispositivos",
+  "Mute": "Silenciar",
+  "Unmute": "Activar sonido",
+  "Volume": "Volumen"
 }
