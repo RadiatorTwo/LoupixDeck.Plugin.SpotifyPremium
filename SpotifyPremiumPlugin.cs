@@ -3,6 +3,7 @@ using LoupixDeck.Plugin.SpotifyPremium.Commands.Library;
 using LoupixDeck.Plugin.SpotifyPremium.Commands.Playback;
 using LoupixDeck.Plugin.SpotifyPremium.Commands.Playlists;
 using LoupixDeck.Plugin.SpotifyPremium.Commands.Volume;
+using LoupixDeck.Plugin.SpotifyPremium.Platform;
 using LoupixDeck.Plugin.SpotifyPremium.Spotify;
 using LoupixDeck.PluginSdk;
 using SpotifyAPI.Web;
@@ -18,8 +19,14 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
 {
     private const string SettingClientId = "client_id";
     private const string SettingClientSecret = "client_secret";
+    private const string SettingRedirectUri = "redirect_uri";
+
+    /// <summary>Only read to migrate settings saved before the redirect URI was configurable.</summary>
     private const string SettingCallbackPort = "callback_port";
+
     private const int DefaultCallbackPort = 5543;
+    private const string DefaultRedirectUri = "http://127.0.0.1:5543/callback";
+    private const string DeveloperDashboardUrl = "https://developer.spotify.com/dashboard";
     internal static readonly TimeSpan VolumeOverlayDuration = TimeSpan.FromMilliseconds(1500);
 
     private IPluginHost _host = null!;
@@ -34,7 +41,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
         Id = "spotifypremium",
         Name = "Spotify Premium",
         Version = new Version(1, 2, 0),
-        SdkVersion = new Version(1, 16, 0),
+        SdkVersion = new Version(1, 25, 0),
         Author = "RadiatorTwo",
         Description = "Control Spotify Premium from LoupixDeck: playback, volume, devices, playlists and likes.",
         Icon = LoadIcon()
@@ -54,6 +61,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
     public override void Initialize(IPluginHost host)
     {
         _host = host;
+        MigrateCallbackPort();
         _tokenStore = new TokenStore(host.Settings);
         _auth = new SpotifyAuth(host, _tokenStore);
 
@@ -120,66 +128,124 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
 
     // ---- IPluginSettingsPage ----
 
-    public IReadOnlyList<PluginSettingDescriptor> SettingsSchema =>
-    [
-        new PluginSettingDescriptor
+    public IReadOnlyList<PluginSettingDescriptor> SettingsSchema
+    {
+        get
         {
-            Key = "__heading_spotify_app",
-            Label = "Spotify App",
-            Kind = PluginSettingKind.Heading,
-            Description = "Create an app at developer.spotify.com and paste the values here. The Redirect URI must be exactly http://127.0.0.1:<port>/callback.",
-            DefaultValue = string.Empty
-        },
-        new PluginSettingDescriptor
-        {
-            Key = SettingClientId,
-            Label = "Client ID",
-            Kind = PluginSettingKind.Text,
-            DefaultValue = string.Empty
-        },
-        new PluginSettingDescriptor
-        {
-            Key = SettingClientSecret,
-            Label = "Client Secret",
-            Kind = PluginSettingKind.Password,
-            DefaultValue = string.Empty
-        },
-        new PluginSettingDescriptor
-        {
-            Key = SettingCallbackPort,
-            Label = "OAuth Callback Port",
-            Kind = PluginSettingKind.Number,
-            DefaultValue = (long)DefaultCallbackPort
-        },
-new PluginSettingDescriptor
-        {
-            Key = "__heading_connection",
-            Label = "Connection",
-            Kind = PluginSettingKind.Heading,
-            Description = _tokenStore?.HasToken == true
-                ? "Currently connected. Use 'Disconnect' to clear the token."
-                : "Not connected yet. Enter Client ID/Secret, save, then click 'Connect to Spotify'.",
-            DefaultValue = string.Empty
+            bool connected = _tokenStore?.HasToken == true;
+
+            return
+            [
+                new PluginSettingDescriptor
+                {
+                    Key = "__heading_status",
+                    Label = PluginText.Format(_host, "Status: {0}", Tr(connected ? "Connected" : "Not connected")),
+                    Kind = PluginSettingKind.Heading,
+                    Description = connected
+                        ? Tr("Spotify is connected. Use \"Disconnect\" to remove the stored login.")
+                        : Tr("Follow the steps under \"Spotify app\", save, then press \"Connect to Spotify\"."),
+                    DefaultValue = string.Empty
+                },
+                new PluginSettingDescriptor
+                {
+                    Key = "__heading_spotify_app",
+                    Label = "Spotify app",
+                    Kind = PluginSettingKind.Heading,
+                    Description = SetupSteps,
+                    DefaultValue = string.Empty
+                },
+                new PluginSettingDescriptor
+                {
+                    Key = SettingClientId,
+                    Label = "Client ID",
+                    Kind = PluginSettingKind.Text,
+                    Description = "From the \"Basic Information\" page of your Spotify app",
+                    DefaultValue = string.Empty
+                },
+                new PluginSettingDescriptor
+                {
+                    Key = SettingClientSecret,
+                    Label = "Client Secret",
+                    Kind = PluginSettingKind.Password,
+                    Description = "On the same page, behind \"View client secret\"",
+                    DefaultValue = string.Empty
+                },
+                new PluginSettingDescriptor
+                {
+                    Key = SettingRedirectUri,
+                    Label = "Redirect URI",
+                    Kind = PluginSettingKind.Text,
+                    Description = "Must match a Redirect URI of your Spotify app character for character. Use http://127.0.0.1 with a free port - the plugin listens there while you sign in.",
+                    DefaultValue = DefaultRedirectUri
+                }
+            ];
         }
-    ];
+    }
+
+    // One string, so the host translates the whole instruction as one key.
+    private const string SetupSteps =
+        "1. Press \"Open Spotify Dashboard\", sign in and click \"Create app\". Name and description are up to you.\n"
+        + "2. Press \"Copy Redirect URI\" and paste it under \"Redirect URIs\" in the app. Tick \"Web API\" and save.\n"
+        + "3. Copy Client ID and Client Secret from the app's settings into the fields below and press Save.\n"
+        + "4. Press \"Connect to Spotify\" and confirm in the browser. The README has a detailed guide.";
 
     public IReadOnlyList<PluginSettingAction> SettingsActions =>
-        _tokenStore?.HasToken == true
-            ? [DisconnectAction()]
-            : [ConnectAction()];
+    [
+        _tokenStore?.HasToken == true ? DisconnectAction() : ConnectAction(),
+        CopyRedirectUriAction(),
+        OpenDashboardAction()
+    ];
 
     public void OnSettingsSaved()
     {
         _clientProvider?.Invalidate();
     }
 
+    private string Tr(string english) => PluginText.Tr(_host, english);
+
+    /// <summary>
+    /// The redirect URI from the settings. Settings saved before the URI was
+    /// configurable only hold a port; <see cref="MigrateCallbackPort"/> turns
+    /// that into a URI on load, so the port is only a last fallback here.
+    /// </summary>
+    private string ReadRedirectUri()
+    {
+        string? uri = _host.Settings.Get<string>(SettingRedirectUri)?.Trim();
+        return string.IsNullOrEmpty(uri) ? RedirectUriForPort(ReadLegacyPort()) : uri;
+    }
+
+    private int ReadLegacyPort()
+    {
+        long port = _host.Settings.Get<long>(SettingCallbackPort, DefaultCallbackPort);
+        return port is > 0 and < 65536 ? (int)port : DefaultCallbackPort;
+    }
+
+    private static string RedirectUriForPort(int port) => $"http://127.0.0.1:{port}/callback";
+
+    /// <summary>
+    /// Older versions stored only "callback_port" and built the URI from it.
+    /// Keep such a setup working by writing the URI it used; the old key stays
+    /// untouched so a downgrade still finds it.
+    /// </summary>
+    private void MigrateCallbackPort()
+    {
+        IPluginSettings settings = _host.Settings;
+        if (settings.Contains(SettingRedirectUri) || !settings.Contains(SettingCallbackPort)) return;
+
+        settings.Set(SettingRedirectUri, RedirectUriForPort(ReadLegacyPort()));
+        settings.Save();
+    }
+
     internal Task<string> ConnectAsync()
     {
-        var clientId = _host.Settings.Get<string>(SettingClientId) ?? string.Empty;
-        var clientSecret = _host.Settings.Get<string>(SettingClientSecret) ?? string.Empty;
-        var port = (int)_host.Settings.Get<long>(SettingCallbackPort, DefaultCallbackPort);
-        if (port is <= 0 or >= 65536) port = DefaultCallbackPort;
-        return _auth.AuthorizeAsync(clientId, clientSecret, port);
+        string clientId = _host.Settings.Get<string>(SettingClientId)?.Trim() ?? string.Empty;
+        string clientSecret = _host.Settings.Get<string>(SettingClientSecret)?.Trim() ?? string.Empty;
+
+        string? invalid = SpotifyAuth.ValidateRedirectUri(ReadRedirectUri(), out Uri? redirectUri);
+        if (invalid != null || redirectUri == null)
+            return Task.FromResult(Tr(invalid ?? "Redirect URI missing."));
+
+        return _auth.AuthorizeAsync(clientId, clientSecret, redirectUri);
     }
 
     private PluginSettingAction ConnectAction() => new()
@@ -187,7 +253,7 @@ new PluginSettingDescriptor
         Label = "Connect to Spotify",
         Invoke = async () =>
         {
-            var result = await ConnectAsync();
+            string result = await ConnectAsync();
             _clientProvider.Invalidate();
             await _playerState.RefreshNowAsync();
             return result;
@@ -201,8 +267,28 @@ new PluginSettingDescriptor
         {
             _tokenStore.Clear();
             _clientProvider.Invalidate();
-            return Task.FromResult("Token cleared.");
+            return Task.FromResult(Tr("Disconnected - the stored login was removed."));
         }
+    };
+
+    private PluginSettingAction CopyRedirectUriAction() => new()
+    {
+        Label = "Copy Redirect URI",
+        Invoke = async () =>
+        {
+            string uri = ReadRedirectUri();
+            return await ClipboardWriter.TrySetTextAsync(uri)
+                ? PluginText.Format(_host, "Copied to the clipboard: {0}", uri)
+                : PluginText.Format(_host, "The clipboard is not available. Copy the Redirect URI from its field instead: {0}", uri);
+        }
+    };
+
+    private PluginSettingAction OpenDashboardAction() => new()
+    {
+        Label = "Open Spotify Dashboard",
+        Invoke = () => Task.FromResult(_host.OpenBrowser(DeveloperDashboardUrl)
+            ? string.Empty
+            : PluginText.Format(_host, "Could not open the browser. Open {0} yourself.", DeveloperDashboardUrl))
     };
 
     // ---- IMenuContributor ----

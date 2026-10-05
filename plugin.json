@@ -2,7 +2,7 @@
   "id": "spotifypremium",
   "name": "SpotifyPremium",
   "version": "1.2.0",
-  "sdkVersion": "1.17",
+  "sdkVersion": "1.25",
   "entryAssembly": "LoupixDeck.Plugin.SpotifyPremium.dll",
   "platform": "All"
 }
