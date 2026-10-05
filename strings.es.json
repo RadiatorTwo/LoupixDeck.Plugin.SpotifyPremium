@@ -5,7 +5,7 @@
   "Spotify is connected. Use \"Disconnect\" to remove the stored login.": "Spotify está conectado. «Desconectar» elimina el inicio de sesión guardado.",
   "Follow the steps under \"Spotify app\", save, then press \"Connect to Spotify\".": "Sigue los pasos de «App de Spotify», guarda y luego pulsa «Conectar con Spotify».",
   "Spotify app": "App de Spotify",
-  "1. Press \"Open Spotify Dashboard\", sign in and click \"Create app\". Name and description are up to you.\n2. Press \"Copy Redirect URI\" and paste it under \"Redirect URIs\" in the app. Tick \"Web API\" and save.\n3. Copy Client ID and Client Secret from the app's settings into the fields below and press Save.\n4. Press \"Connect to Spotify\" and confirm in the browser. The README has a detailed guide.": "1. Pulsa «Abrir el panel de Spotify», inicia sesión y haz clic en «Create app». El nombre y la descripción son libres.\n2. Pulsa «Copiar URI de redirección» y pégala en «Redirect URIs» de la app. Marca «Web API» y guarda.\n3. Copia el Client ID y el Client Secret de la configuración de la app en los campos de abajo y pulsa Guardar.\n4. Pulsa «Conectar con Spotify» y confirma en el navegador. El README tiene una guía detallada.",
+  "1. Press \"Open Spotify Dashboard\", sign in and click \"Create app\". Name and description are up to you.\n2. Press \"Copy Redirect URI\" and paste it under \"Redirect URIs\" in the app. Tick \"Web API\" and save.\n3. Copy Client ID and Client Secret from the app's settings into the fields below and press Save.\n4. Press \"Connect to Spotify\" and confirm in the browser. \"Open Setup Guide\" shows a detailed guide.": "1. Pulsa «Abrir el panel de Spotify», inicia sesión y haz clic en «Create app». El nombre y la descripción son libres.\n2. Pulsa «Copiar URI de redirección» y pégala en «Redirect URIs» de la app. Marca «Web API» y guarda.\n3. Copia el Client ID y el Client Secret de la configuración de la app en los campos de abajo y pulsa Guardar.\n4. Pulsa «Conectar con Spotify» y confirma en el navegador. «Abrir la guía de configuración» muestra una guía detallada.",
   "Client ID": "Client ID",
   "From the \"Basic Information\" page of your Spotify app": "De la página «Basic Information» de tu app de Spotify",
   "Client Secret": "Client Secret",
@@ -69,5 +69,6 @@
   "Shuffle is on": "El modo aleatorio está activado",
   "Repeat is off": "Repetir está desactivado",
   "Repeats the playlist or album": "Repite la playlist o el álbum",
-  "Repeats the current track": "Repite la canción actual"
+  "Repeats the current track": "Repite la canción actual",
+  "Open Setup Guide": "Abrir la guía de configuración"
 }
