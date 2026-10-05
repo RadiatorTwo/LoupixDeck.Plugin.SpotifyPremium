@@ -15,6 +15,8 @@ internal static class SpotifyStates
     public const string Playing = "Playing";
     public const string Unmuted = "Unmuted";
     public const string Muted = "Muted";
+    public const string NotLiked = "NotLiked";
+    public const string Liked = "Liked";
 
     public static readonly PluginColor Normal = PluginColor.White;
     public static readonly PluginColor Green = PluginColor.FromRgb(0x1E, 0xD7, 0x60);
@@ -30,6 +32,12 @@ internal static class SpotifyStates
     [
         new() { Name = Unmuted, Description = "Spotify is audible" },
         new() { Name = Muted, Description = "Spotify volume is 0" }
+    ];
+
+    public static IReadOnlyList<ButtonStateDescriptor> Like { get; } =
+    [
+        new() { Name = NotLiked, Description = "The current track is not in Liked Songs" },
+        new() { Name = Liked, Description = "The current track is in Liked Songs" }
     ];
 
     /// <summary>

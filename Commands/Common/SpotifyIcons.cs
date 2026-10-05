@@ -43,6 +43,8 @@ internal static class SpotifyIcons
     public const string PauseSymbol = "pause";
     public const string VolumeSymbol = "volume-high";
     public const string VolumeOffSymbol = "volume-off";
+    public const string HeartSymbol = "heart";
+    public const string HeartOutlineSymbol = "heart-outline";
 
     // Pixel values for a 90 px key; the host scales them onto the key actually being written.
     internal const double IconScale = 0.5;

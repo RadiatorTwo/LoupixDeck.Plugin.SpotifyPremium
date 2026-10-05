@@ -460,6 +460,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
         // Stateful buttons switch to the state that matches Spotify; the host redraws them on the switch.
         SpotifyStates.Push(_host, TogglePlaybackCommand.Name, TogglePlaybackCommand.StateOf(snap));
         SpotifyStates.Push(_host, ToggleMuteCommand.Name, ToggleMuteCommand.StateOf(snap));
+        SpotifyStates.Push(_host, ToggleLikeCommand.Name, ToggleLikeCommand.StateOf(snap));
 
         // Whenever Spotify state changes, ask the host to redraw any button
         // bound to a display command we own. The set is fixed and small.

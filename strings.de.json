@@ -42,7 +42,7 @@
   "Shuffle": "Zufall",
   "Repeat": "Wiederholen",
   "Queue": "Warteschlange",
-  "Like": "Gefällt mir",
+  "Like": "Liken",
   "Liked Songs": "Lieblingssongs",
   "Add to Playlist": "Zur Playlist",
   "Remove": "Entfernen",
@@ -58,5 +58,8 @@
   "Playback is paused": "Wiedergabe ist pausiert",
   "Spotify is playing": "Spotify spielt",
   "Spotify is audible": "Spotify ist hörbar",
-  "Spotify volume is 0": "Spotify-Lautstärke ist 0"
+  "Spotify volume is 0": "Spotify-Lautstärke ist 0",
+  "Liked": "Gefällt mir",
+  "The current track is not in Liked Songs": "Der aktuelle Song ist nicht in den Lieblingssongs",
+  "The current track is in Liked Songs": "Der aktuelle Song ist in den Lieblingssongs"
 }
