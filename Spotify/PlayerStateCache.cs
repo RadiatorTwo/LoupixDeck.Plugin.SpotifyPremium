@@ -24,6 +24,8 @@ public sealed class PlayerStateCache : IDisposable
     // Same for play/pause: right after Pause/Resume the poll still reports
     // the previous playback state.
     private DateTime _lastLocalPlayingUtc = DateTime.MinValue;
+    private DateTime _lastLocalShuffleUtc = DateTime.MinValue;
+    private DateTime _lastLocalRepeatUtc = DateTime.MinValue;
     // The like state is not part of /me/player: it is checked once per track
     // and re-checked now and then, so a like made in the Spotify app shows up.
     private string _likedTrackUri = string.Empty;
@@ -70,6 +72,20 @@ public sealed class PlayerStateCache : IDisposable
     {
         _lastLocalVolumeUtc = DateTime.UtcNow;
         Update(State with { VolumePercent = Math.Clamp(percent, 0, 100) });
+    }
+
+    /// <summary>Pushes a locally-known shuffle state, see <see cref="ApplyLocalPlaying"/>.</summary>
+    public void ApplyLocalShuffle(bool enabled)
+    {
+        _lastLocalShuffleUtc = DateTime.UtcNow;
+        Update(State with { ShuffleEnabled = enabled });
+    }
+
+    /// <summary>Pushes a locally-known repeat state ("off", "context" or "track"), see <see cref="ApplyLocalPlaying"/>.</summary>
+    public void ApplyLocalRepeat(string repeatState)
+    {
+        _lastLocalRepeatUtc = DateTime.UtcNow;
+        Update(State with { RepeatState = repeatState });
     }
 
     /// <summary>
@@ -190,12 +206,18 @@ public sealed class PlayerStateCache : IDisposable
             var isPlaying = DateTime.UtcNow - _lastLocalPlayingUtc < LocalTrustWindow
                 ? State.IsPlaying
                 : playback.IsPlaying;
+            var shuffle = DateTime.UtcNow - _lastLocalShuffleUtc < LocalTrustWindow
+                ? State.ShuffleEnabled
+                : playback.ShuffleState;
+            var repeat = DateTime.UtcNow - _lastLocalRepeatUtc < LocalTrustWindow
+                ? State.RepeatState
+                : playback.RepeatState ?? "off";
 
             var snap = new PlayerSnapshot
             {
                 IsPlaying = isPlaying,
-                ShuffleEnabled = playback.ShuffleState,
-                RepeatState = playback.RepeatState ?? "off",
+                ShuffleEnabled = shuffle,
+                RepeatState = repeat,
                 TrackId = track?.Id ?? string.Empty,
                 TrackUri = track?.Uri ?? string.Empty,
                 TrackName = track?.Name ?? string.Empty,

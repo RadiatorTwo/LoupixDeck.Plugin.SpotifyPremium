@@ -17,6 +17,10 @@ internal static class SpotifyStates
     public const string Muted = "Muted";
     public const string NotLiked = "NotLiked";
     public const string Liked = "Liked";
+    public const string Off = "Off";
+    public const string On = "On";
+    public const string RepeatAll = "All";
+    public const string RepeatOne = "One";
 
     public static readonly PluginColor Normal = PluginColor.White;
     public static readonly PluginColor Green = PluginColor.FromRgb(0x1E, 0xD7, 0x60);
@@ -38,6 +42,19 @@ internal static class SpotifyStates
     [
         new() { Name = NotLiked, Description = "The current track is not in Liked Songs" },
         new() { Name = Liked, Description = "The current track is in Liked Songs" }
+    ];
+
+    public static IReadOnlyList<ButtonStateDescriptor> Shuffle { get; } =
+    [
+        new() { Name = Off, Description = "Shuffle is off" },
+        new() { Name = On, Description = "Shuffle is on" }
+    ];
+
+    public static IReadOnlyList<ButtonStateDescriptor> Repeat { get; } =
+    [
+        new() { Name = Off, Description = "Repeat is off" },
+        new() { Name = RepeatAll, Description = "Repeats the playlist or album" },
+        new() { Name = RepeatOne, Description = "Repeats the current track" }
     ];
 
     /// <summary>

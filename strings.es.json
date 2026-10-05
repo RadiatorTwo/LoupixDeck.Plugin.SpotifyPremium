@@ -40,7 +40,6 @@
   "Next": "Siguiente",
   "Previous": "Anterior",
   "Shuffle": "Aleatorio",
-  "Repeat": "Repetir",
   "Queue": "Cola",
   "Like": "Dar me gusta",
   "Liked Songs": "Tus me gusta",
@@ -61,5 +60,14 @@
   "Spotify volume is 0": "El volumen de Spotify es 0",
   "Liked": "Me gusta",
   "The current track is not in Liked Songs": "La canción actual no está en Tus me gusta",
-  "The current track is in Liked Songs": "La canción actual está en Tus me gusta"
+  "The current track is in Liked Songs": "La canción actual está en Tus me gusta",
+  "Shuffle off": "Aleatorio no",
+  "Repeat off": "Repetir no",
+  "Repeat all": "Repetir todo",
+  "Repeat one": "Repetir una",
+  "Shuffle is off": "El modo aleatorio está desactivado",
+  "Shuffle is on": "El modo aleatorio está activado",
+  "Repeat is off": "Repetir está desactivado",
+  "Repeats the playlist or album": "Repite la playlist o el álbum",
+  "Repeats the current track": "Repite la canción actual"
 }

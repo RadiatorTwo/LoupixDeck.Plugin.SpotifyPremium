@@ -78,66 +78,95 @@ internal sealed class PreviousTrackCommand : SpotifyCommandBase
         => spotify.Player.SkipPrevious(new PlayerSkipPreviousRequest { DeviceId = DeviceId(ctx, Player.State) });
 }
 
-internal sealed class ShufflePlayCommand : SpotifyCommandBase, IDisplayCommand
+internal sealed class ShufflePlayCommand : SpotifyCommandBase, IDisplayImageCommand
 {
+    public const string Name = "SpotifyPremium.ShufflePlay";
+
     public ShufflePlayCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
 
     public override CommandDescriptor Descriptor { get; } = new()
     {
-        CommandName = "SpotifyPremium.ShufflePlay",
+        CommandName = Name,
         DisplayName = "Toggle Shuffle",
         Group = "Spotify Premium",
         Icon = SpotifyIcons.Shuffle,
-        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.Shuffle, "Shuffle"),
+        ButtonLayout = SpotifyIcons.DrawnByCommand,
         Description = "Toggle shuffle playback",
+        States = SpotifyStates.Shuffle,
         HiddenFromMenu = true
     };
 
+    /// <summary>Changes arrive as pushes from the player cache; polling is only a safety net.</summary>
     public TimeSpan UpdateInterval => TimeSpan.FromSeconds(3);
-    public string GetText(CommandContext ctx) => Player.State.ShuffleEnabled ? "Shuffle ✓" : "Shuffle";
 
-    protected override Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
-        => spotify.Player.SetShuffle(new PlayerShuffleRequest(!Player.State.ShuffleEnabled)
+    public static string StateOf(PlayerSnapshot state) => state.ShuffleEnabled ? SpotifyStates.On : SpotifyStates.Off;
+
+    public bool RenderImage(CommandContext ctx, IRenderCanvas canvas) =>
+        SpotifyStates.Resolve(ctx, Name, StateOf(Player.State)) == SpotifyStates.On
+            ? SpotifyStates.Draw(canvas, SpotifyIcons.ShuffleSymbol, PluginText.Tr(ctx.Host, "Shuffle"), SpotifyStates.Green)
+            : SpotifyStates.Draw(canvas, SpotifyIcons.ShuffleOffSymbol, PluginText.Tr(ctx.Host, "Shuffle off"), SpotifyStates.Normal);
+
+    protected override async Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
+    {
+        bool enable = !Player.State.ShuffleEnabled;
+        await spotify.Player.SetShuffle(new PlayerShuffleRequest(enable)
         {
             DeviceId = DeviceId(ctx, Player.State)
         });
+        Player.ApplyLocalShuffle(enable);
+    }
 }
 
-internal sealed class ChangeRepeatStateCommand : SpotifyCommandBase, IDisplayCommand
+internal sealed class ChangeRepeatStateCommand : SpotifyCommandBase, IDisplayImageCommand
 {
+    public const string Name = "SpotifyPremium.ChangeRepeatState";
+
     public ChangeRepeatStateCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
 
     public override CommandDescriptor Descriptor { get; } = new()
     {
-        CommandName = "SpotifyPremium.ChangeRepeatState",
+        CommandName = Name,
         DisplayName = "Cycle Repeat Mode",
         Group = "Spotify Premium",
         Icon = SpotifyIcons.Repeat,
-        ButtonLayout = SpotifyIcons.IconWithCaption(SpotifyIcons.Repeat, "Repeat"),
+        ButtonLayout = SpotifyIcons.DrawnByCommand,
         Description = "Cycle repeat off, all, one",
+        States = SpotifyStates.Repeat,
         HiddenFromMenu = true
     };
 
+    /// <summary>Changes arrive as pushes from the player cache; polling is only a safety net.</summary>
     public TimeSpan UpdateInterval => TimeSpan.FromSeconds(3);
-    public string GetText(CommandContext ctx) => Player.State.RepeatState switch
+
+    public static string StateOf(PlayerSnapshot state) => state.RepeatState switch
     {
-        "track" => "Repeat 1",
-        "context" => "Repeat ⟳",
-        _ => "Repeat off"
+        "track" => SpotifyStates.RepeatOne,
+        "context" => SpotifyStates.RepeatAll,
+        _ => SpotifyStates.Off
     };
 
-    protected override Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
-    {
-        var next = Player.State.RepeatState switch
+    public bool RenderImage(CommandContext ctx, IRenderCanvas canvas) =>
+        SpotifyStates.Resolve(ctx, Name, StateOf(Player.State)) switch
         {
-            "off" => PlayerSetRepeatRequest.State.Context,
-            "context" => PlayerSetRepeatRequest.State.Track,
-            _ => PlayerSetRepeatRequest.State.Off
+            SpotifyStates.RepeatOne => SpotifyStates.Draw(canvas, SpotifyIcons.RepeatOnceSymbol, PluginText.Tr(ctx.Host, "Repeat one"), SpotifyStates.Green),
+            SpotifyStates.RepeatAll => SpotifyStates.Draw(canvas, SpotifyIcons.RepeatSymbol, PluginText.Tr(ctx.Host, "Repeat all"), SpotifyStates.Green),
+            _ => SpotifyStates.Draw(canvas, SpotifyIcons.RepeatOffSymbol, PluginText.Tr(ctx.Host, "Repeat off"), SpotifyStates.Normal)
         };
-        return spotify.Player.SetRepeat(new PlayerSetRepeatRequest(next)
+
+    protected override async Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx)
+    {
+        // off -> all (context) -> one (track) -> off, like the Spotify app.
+        (PlayerSetRepeatRequest.State next, string nextName) = Player.State.RepeatState switch
+        {
+            "off" => (PlayerSetRepeatRequest.State.Context, "context"),
+            "context" => (PlayerSetRepeatRequest.State.Track, "track"),
+            _ => (PlayerSetRepeatRequest.State.Off, "off")
+        };
+        await spotify.Player.SetRepeat(new PlayerSetRepeatRequest(next)
         {
             DeviceId = DeviceId(ctx, Player.State)
         });
+        Player.ApplyLocalRepeat(nextName);
     }
 }
 

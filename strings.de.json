@@ -40,7 +40,6 @@
   "Next": "Weiter",
   "Previous": "Zurück",
   "Shuffle": "Zufall",
-  "Repeat": "Wiederholen",
   "Queue": "Warteschlange",
   "Like": "Liken",
   "Liked Songs": "Lieblingssongs",
@@ -61,5 +60,14 @@
   "Spotify volume is 0": "Spotify-Lautstärke ist 0",
   "Liked": "Gefällt mir",
   "The current track is not in Liked Songs": "Der aktuelle Song ist nicht in den Lieblingssongs",
-  "The current track is in Liked Songs": "Der aktuelle Song ist in den Lieblingssongs"
+  "The current track is in Liked Songs": "Der aktuelle Song ist in den Lieblingssongs",
+  "Shuffle off": "Zufall aus",
+  "Repeat off": "Wdh. aus",
+  "Repeat all": "Alle wdh.",
+  "Repeat one": "Song wdh.",
+  "Shuffle is off": "Zufallswiedergabe ist aus",
+  "Shuffle is on": "Zufallswiedergabe ist an",
+  "Repeat is off": "Wiederholen ist aus",
+  "Repeats the playlist or album": "Wiederholt die Playlist oder das Album",
+  "Repeats the current track": "Wiederholt den aktuellen Song"
 }
