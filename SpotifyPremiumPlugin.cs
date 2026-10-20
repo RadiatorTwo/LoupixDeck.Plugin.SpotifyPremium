@@ -16,7 +16,7 @@ namespace LoupixDeck.Plugin.SpotifyPremium;
 /// SpotifyPremiumPlugin. Owns the OAuth flow, a refresh-aware Spotify client,
 /// and a background player-state cache that all commands consult.
 /// </summary>
-public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IMenuContributor
+public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IMenuContributor, IPluginRequirements
 {
     private const string SettingClientId = "client_id";
     private const string SettingClientSecret = "client_secret";
@@ -129,6 +129,35 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
         _playerState?.Dispose();
     }
 
+    // ---- IPluginRequirements ----
+
+    private const string RateLimitRequirementId = "spotify-rate-limit";
+
+    /// <summary>
+    /// Reports a Spotify rate limit block as an unmet requirement, so the host flags the plugin
+    /// as needing attention instead of it looking connected while every button does nothing.
+    /// </summary>
+    public IReadOnlyList<PluginRequirement> GetRequirements()
+    {
+        DateTime? until = _clientProvider?.RateLimitedUntilUtc;
+
+        return
+        [
+            new PluginRequirement
+            {
+                Id = RateLimitRequirementId,
+                Name = "Spotify requests",
+                IsMet = until == null,
+                Message = until is { } end
+                    ? PluginText.Format(_host, "Spotify has paused requests from this app until {0}. Buttons do nothing until then.", end.ToLocalTime().ToString("t"))
+                    : null,
+                InstallHint = until == null
+                    ? null
+                    : Tr("Wait until then. Reconnecting does not help, as the pause applies to the Client ID of your Spotify app.")
+            }
+        ];
+    }
+
     // ---- IPluginSettingsPage ----
 
     public IReadOnlyList<PluginSettingDescriptor> SettingsSchema
@@ -136,25 +165,17 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
         get
         {
             bool connected = _tokenStore?.HasToken == true;
-            DateTime? rateLimitedUntil = connected ? _clientProvider?.RateLimitedUntilUtc : null;
-
-            string status = !connected ? "Not connected"
-                : rateLimitedUntil != null ? "Rate limited by Spotify"
-                : "Connected";
-            string statusDescription = !connected
-                ? Tr("Follow the steps under \"Spotify app\", save, then press \"Connect to Spotify\".")
-                : rateLimitedUntil is { } until
-                    ? PluginText.Format(_host, "Spotify has paused requests from this app until {0}. Buttons do nothing until then; reconnecting does not help.", until.ToLocalTime().ToString("t"))
-                    : Tr("Spotify is connected. Use \"Disconnect\" to remove the stored login.");
 
             return
             [
                 new PluginSettingDescriptor
                 {
                     Key = "__heading_status",
-                    Label = PluginText.Format(_host, "Status: {0}", Tr(status)),
+                    Label = PluginText.Format(_host, "Status: {0}", Tr(connected ? "Connected" : "Not connected")),
                     Kind = PluginSettingKind.Heading,
-                    Description = statusDescription,
+                    Description = connected
+                        ? Tr("Spotify is connected. Use \"Disconnect\" to remove the stored login.")
+                        : Tr("Follow the steps under \"Spotify app\", save, then press \"Connect to Spotify\"."),
                     DefaultValue = string.Empty
                 },
                 new PluginSettingDescriptor
