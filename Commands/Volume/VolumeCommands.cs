@@ -233,6 +233,10 @@ internal abstract class VolumeStepBase : SpotifyCommandBase
                         DeviceId = DeviceId(ctx, Player.State)
                     });
                 }
+                catch (APITooManyRequestsException ex)
+                {
+                    Client.NoteRateLimit(ex);
+                }
                 catch (APIException ex)
                 {
                     Logger.Warn($"{Descriptor.CommandName}: SetVolume failed: {ex.Response?.StatusCode} {ex.Message}");

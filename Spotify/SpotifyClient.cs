@@ -23,6 +23,12 @@ public sealed class SpotifyClientProvider
     private IAPIConnector? _cachedConnector;
     private DateTime _cachedExpiryUtc;
 
+    // Set from Retry-After on a 429. Spotify can block an app for hours;
+    // further requests during the block only keep it busy.
+    private static readonly TimeSpan DefaultRetryAfter = TimeSpan.FromSeconds(30);
+    private readonly object _rateLimitGate = new();
+    private DateTime _rateLimitedUntilUtc = DateTime.MinValue;
+
     public SpotifyClientProvider(
         IPluginHost host,
         TokenStore tokenStore,
@@ -39,8 +45,42 @@ public sealed class SpotifyClientProvider
 
     public bool IsAuthorized => _tokenStore.HasToken;
 
+    /// <summary>When Spotify's rate limit block ends, or null when there is none.</summary>
+    public DateTime? RateLimitedUntilUtc
+    {
+        get
+        {
+            lock (_rateLimitGate)
+                return DateTime.UtcNow < _rateLimitedUntilUtc ? _rateLimitedUntilUtc : null;
+        }
+    }
+
+    /// <summary>
+    /// Records a 429 so no further requests go out until its Retry-After has
+    /// passed. Logs only when the block starts or gets longer.
+    /// </summary>
+    public void NoteRateLimit(APITooManyRequestsException ex)
+    {
+        var wait = ex.RetryAfter > TimeSpan.Zero ? ex.RetryAfter : DefaultRetryAfter;
+        var until = DateTime.UtcNow + wait;
+
+        lock (_rateLimitGate)
+        {
+            if (until <= _rateLimitedUntilUtc) return;
+            _rateLimitedUntilUtc = until;
+        }
+
+        _host.Logger.Warn($"Spotify rate limit: no requests until {until.ToLocalTime():HH:mm:ss} (Retry-After {wait.TotalSeconds:0} s).");
+    }
+
+    /// <summary>
+    /// The client for the stored token, or null when not connected or while
+    /// Spotify's rate limit block lasts (see <see cref="RateLimitedUntilUtc"/>).
+    /// </summary>
     public async Task<SpotifyAPI.Web.SpotifyClient?> GetClientAsync(CancellationToken ct = default)
     {
+        if (RateLimitedUntilUtc != null) return null;
+
         var token = _tokenStore.Load();
         if (token == null) return null;
 

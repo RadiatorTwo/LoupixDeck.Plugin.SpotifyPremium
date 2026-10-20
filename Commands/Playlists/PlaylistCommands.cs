@@ -51,6 +51,10 @@ internal sealed class StartPlaylistCommand : IPluginCommand
                 ContextUri = $"spotify:playlist:{ctx.Parameters[0]}"
             });
         }
+        catch (APITooManyRequestsException ex)
+        {
+            _client.NoteRateLimit(ex);
+        }
         catch (Exception ex)
         {
             _logger.Warn($"StartPlaylist failed: {ex.Message}");

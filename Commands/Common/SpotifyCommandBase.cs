@@ -30,6 +30,12 @@ internal abstract class SpotifyCommandBase : IPluginCommand
     {
         try
         {
+            if (Client.RateLimitedUntilUtc is { } until)
+            {
+                Logger.Warn($"{Descriptor.CommandName}: skipped, Spotify rate limit lasts until {until.ToLocalTime():HH:mm:ss}.");
+                return;
+            }
+
             var spotify = await Client.GetClientAsync();
             if (spotify == null)
             {
@@ -40,6 +46,10 @@ internal abstract class SpotifyCommandBase : IPluginCommand
             await Run(spotify, ctx);
             // Refresh cached state immediately so display commands reflect the change.
             await Player.RefreshNowAsync();
+        }
+        catch (APITooManyRequestsException ex)
+        {
+            Client.NoteRateLimit(ex);
         }
         catch (APIException ex)
         {

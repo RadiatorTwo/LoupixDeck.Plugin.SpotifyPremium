@@ -33,6 +33,9 @@ public sealed class PlayerStateCache : IDisposable
     private DateTime _likedCheckedUtc = DateTime.MinValue;
     private DateTime _lastLocalLikedUtc = DateTime.MinValue;
     private static readonly TimeSpan LikedRecheckInterval = TimeSpan.FromSeconds(30);
+    // With no active device nothing changes until the user starts Spotify;
+    // polling slower then saves most of the app's rate limit overnight.
+    private static readonly TimeSpan IdlePollInterval = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan LocalTrustWindow = TimeSpan.FromSeconds(5);
     // Track position lives outside the snapshot: it changes on every poll and
     // would otherwise fire Changed (and redraw every button) each time.
@@ -166,13 +169,28 @@ public sealed class PlayerStateCache : IDisposable
         while (!ct.IsCancellationRequested)
         {
             await PollOnceAsync(ct);
-            try { await Task.Delay(_pollInterval, ct); }
+            try { await Task.Delay(NextPollDelay(), ct); }
             catch (OperationCanceledException) { return; }
         }
     }
 
+    private TimeSpan NextPollDelay()
+    {
+        if (_clientProvider.RateLimitedUntilUtc is { } until)
+        {
+            var remaining = until - DateTime.UtcNow;
+            if (remaining > TimeSpan.Zero) return remaining;
+        }
+
+        return string.IsNullOrEmpty(State.DeviceId) ? IdlePollInterval : _pollInterval;
+    }
+
     private async Task PollOnceAsync(CancellationToken ct)
     {
+        // Keep the last known state while Spotify blocks requests; an empty
+        // snapshot would claim nothing is playing.
+        if (_clientProvider.RateLimitedUntilUtc != null) return;
+
         try
         {
             var client = await _clientProvider.GetClientAsync(ct);
@@ -230,6 +248,10 @@ public sealed class PlayerStateCache : IDisposable
 
             Update(snap);
         }
+        catch (APITooManyRequestsException ex)
+        {
+            _clientProvider.NoteRateLimit(ex);
+        }
         catch (APIException ex)
         {
             _host.Logger.Warn($"PlayerState poll failed: {ex.Message}");
@@ -258,6 +280,11 @@ public sealed class PlayerStateCache : IDisposable
         {
             var saved = await client.Library.CheckItems(new LibraryCheckItemsRequest(new[] { trackUri }));
             _liked = saved is { Count: > 0 } && saved[0];
+        }
+        catch (APITooManyRequestsException ex)
+        {
+            _clientProvider.NoteRateLimit(ex);
+            if (!sameTrack) _liked = false;
         }
         catch (APIException ex)
         {

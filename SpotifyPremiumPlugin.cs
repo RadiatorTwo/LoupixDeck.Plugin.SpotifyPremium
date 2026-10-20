@@ -136,17 +136,25 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
         get
         {
             bool connected = _tokenStore?.HasToken == true;
+            DateTime? rateLimitedUntil = connected ? _clientProvider?.RateLimitedUntilUtc : null;
+
+            string status = !connected ? "Not connected"
+                : rateLimitedUntil != null ? "Rate limited by Spotify"
+                : "Connected";
+            string statusDescription = !connected
+                ? Tr("Follow the steps under \"Spotify app\", save, then press \"Connect to Spotify\".")
+                : rateLimitedUntil is { } until
+                    ? PluginText.Format(_host, "Spotify has paused requests from this app until {0}. Buttons do nothing until then; reconnecting does not help.", until.ToLocalTime().ToString("t"))
+                    : Tr("Spotify is connected. Use \"Disconnect\" to remove the stored login.");
 
             return
             [
                 new PluginSettingDescriptor
                 {
                     Key = "__heading_status",
-                    Label = PluginText.Format(_host, "Status: {0}", Tr(connected ? "Connected" : "Not connected")),
+                    Label = PluginText.Format(_host, "Status: {0}", Tr(status)),
                     Kind = PluginSettingKind.Heading,
-                    Description = connected
-                        ? Tr("Spotify is connected. Use \"Disconnect\" to remove the stored login.")
-                        : Tr("Follow the steps under \"Spotify app\", save, then press \"Connect to Spotify\"."),
+                    Description = statusDescription,
                     DefaultValue = string.Empty
                 },
                 new PluginSettingDescriptor
@@ -414,6 +422,11 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
                 }
             ];
         }
+        catch (APITooManyRequestsException ex)
+        {
+            _clientProvider.NoteRateLimit(ex);
+            return new List<MenuNode>();
+        }
         catch (Exception ex)
         {
             _host.Logger.Warn($"Failed to build playlist menu: {ex.Message}");
@@ -453,6 +466,11 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
             return saved.Count == 0
                 ? [byLink]
                 : [new MenuNode { Name = "Start Saved Album", Children = saved }, byLink];
+        }
+        catch (APITooManyRequestsException ex)
+        {
+            _clientProvider.NoteRateLimit(ex);
+            return [byLink];
         }
         catch (Exception ex)
         {

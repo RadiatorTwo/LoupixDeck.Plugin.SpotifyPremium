@@ -2,6 +2,8 @@
   "Status: {0}": "Status: {0}",
   "Connected": "Verbunden",
   "Not connected": "Nicht verbunden",
+  "Rate limited by Spotify": "Von Spotify gedrosselt",
+  "Spotify has paused requests from this app until {0}. Buttons do nothing until then; reconnecting does not help.": "Spotify hat Anfragen dieser App bis {0} ausgesetzt. Bis dahin tun die Tasten nichts; neu verbinden hilft nicht.",
   "Spotify is connected. Use \"Disconnect\" to remove the stored login.": "Spotify ist verbunden. „Trennen“ entfernt die gespeicherte Anmeldung.",
   "Follow the steps under \"Spotify app\", save, then press \"Connect to Spotify\".": "Folge den Schritten unter „Spotify-App“, speichere und drücke dann „Mit Spotify verbinden“.",
   "Spotify app": "Spotify-App",
