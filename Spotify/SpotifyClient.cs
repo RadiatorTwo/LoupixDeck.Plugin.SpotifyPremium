@@ -55,6 +55,9 @@ public sealed class SpotifyClientProvider
         }
     }
 
+    /// <summary>Raised when a rate limit block starts, gets longer or ends.</summary>
+    public event Action? RateLimitChanged;
+
     /// <summary>
     /// Records a 429 so no further requests go out until its Retry-After has
     /// passed. Logs only when the block starts or gets longer.
@@ -71,6 +74,20 @@ public sealed class SpotifyClientProvider
         }
 
         _host.Logger.Warn($"Spotify rate limit: no requests until {until.ToLocalTime():HH:mm:ss} (Retry-After {wait.TotalSeconds:0} s).");
+        RaiseRateLimitChanged();
+
+        // A longer block set in the meantime makes this check a no-op; its own
+        // timer reports the end.
+        _ = Task.Delay(wait + TimeSpan.FromSeconds(1)).ContinueWith(_ =>
+        {
+            if (RateLimitedUntilUtc == null) RaiseRateLimitChanged();
+        }, TaskScheduler.Default);
+    }
+
+    private void RaiseRateLimitChanged()
+    {
+        try { RateLimitChanged?.Invoke(); }
+        catch (Exception ex) { _host.Logger.Error("RateLimitChanged handler error", ex); }
     }
 
     /// <summary>
