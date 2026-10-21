@@ -141,6 +141,7 @@ internal sealed class RemoveFromPlaylistCommand : SpotifyCommandBase
 internal sealed class StartAlbumCommand : SpotifyCommandBase
 {
     public StartAlbumCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
+    protected override bool NeedsPlayerState => false;
 
     public override CommandDescriptor Descriptor { get; } = new()
     {

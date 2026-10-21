@@ -26,6 +26,14 @@ internal abstract class SpotifyCommandBase : IPluginCommand
     public abstract CommandDescriptor Descriptor { get; }
     public virtual ButtonTargets SupportedTargets => ButtonTargets.All;
 
+    /// <summary>
+    /// Whether <see cref="Run"/> reads <see cref="PlayerStateCache.State"/>
+    /// (track, playback, volume). The cache is then refreshed first unless it
+    /// is fresh. Commands that only act on the active device return false and
+    /// cost one request.
+    /// </summary>
+    protected virtual bool NeedsPlayerState => true;
+
     public virtual async Task Execute(CommandContext ctx)
     {
         try
@@ -43,9 +51,14 @@ internal abstract class SpotifyCommandBase : IPluginCommand
                 return;
             }
 
+            if (NeedsPlayerState)
+                await Player.EnsureFreshAsync();
+
             await Run(spotify, ctx);
-            // Refresh cached state immediately so display commands reflect the change.
-            await Player.RefreshNowAsync();
+            // Refresh cached state so buttons on screen reflect the change; with
+            // none shown the next press fetches it anyway.
+            if (Player.HasDemand)
+                await Player.RefreshNowAsync();
         }
         catch (APITooManyRequestsException ex)
         {
@@ -62,6 +75,17 @@ internal abstract class SpotifyCommandBase : IPluginCommand
     }
 
     protected abstract Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx);
+
+    /// <summary>
+    /// The player state for drawing a button or value. Tells the cache the
+    /// display is on screen, so it polls every <paramref name="pollInterval"/>
+    /// while the host keeps drawing it.
+    /// </summary>
+    protected PlayerSnapshot ShownState(TimeSpan pollInterval)
+    {
+        Player.MarkDisplayed(pollInterval);
+        return Player.State;
+    }
 
     /// <summary>
     /// Pauses while playing, resumes otherwise, and takes the new state into
@@ -89,8 +113,13 @@ internal abstract class SpotifyCommandBase : IPluginCommand
         Player.ApplyLocalVolume(percent);
     }
 
-    protected static string? DeviceId(CommandContext ctx, PlayerSnapshot state)
+    /// <summary>
+    /// The device to target, or null for Spotify's active device. A device
+    /// from stale state may no longer be the one playing, so it is only used
+    /// while the state is fresh.
+    /// </summary>
+    protected string? DeviceId(CommandContext ctx, PlayerSnapshot state)
     {
-        return string.IsNullOrEmpty(state.DeviceId) ? null : state.DeviceId;
+        return Player.IsFresh && !string.IsNullOrEmpty(state.DeviceId) ? state.DeviceId : null;
     }
 }

@@ -4,17 +4,21 @@ using SpotifyAPI.Web;
 namespace LoupixDeck.Plugin.SpotifyPremium.Spotify;
 
 /// <summary>
-/// Polls Spotify's <c>/me/player</c> in the background and exposes the latest
-/// snapshot. Commands consult <see cref="State"/> directly when rendering text
-/// or making toggle decisions, instead of each issuing their own API call —
-/// avoids hammering Spotify when multiple buttons reflect the same state.
+/// Holds the latest snapshot of Spotify's <c>/me/player</c>. Commands consult
+/// <see cref="State"/> directly when rendering text or making toggle decisions,
+/// instead of each issuing their own API call.
+///
+/// Polls in the background only while a button that shows player state is on
+/// screen (see <see cref="MarkDisplayed"/>). Every Spotify request counts
+/// against the developer account's daily Development Mode quota, so with only
+/// plain buttons nothing is polled and a command fetches the state it needs
+/// when pressed (<see cref="EnsureFreshAsync"/>).
 /// Fires <see cref="Changed"/> only when a relevant field actually differs.
 /// </summary>
 public sealed class PlayerStateCache : IDisposable
 {
     private readonly SpotifyClientProvider _clientProvider;
     private readonly IPluginHost _host;
-    private readonly TimeSpan _pollInterval;
     private readonly CancellationTokenSource _cts = new();
     private Task? _loopTask;
     // Local volume writes win over polled volume for a short window. After
@@ -32,10 +36,25 @@ public sealed class PlayerStateCache : IDisposable
     private bool _liked;
     private DateTime _likedCheckedUtc = DateTime.MinValue;
     private DateTime _lastLocalLikedUtc = DateTime.MinValue;
-    private static readonly TimeSpan LikedRecheckInterval = TimeSpan.FromSeconds(30);
-    // With no active device nothing changes until the user starts Spotify;
-    // polling slower then saves most of the app's rate limit overnight.
-    private static readonly TimeSpan IdlePollInterval = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan LikedRecheckInterval = TimeSpan.FromMinutes(5);
+
+    /// <summary>Poll interval while a play/pause, mute, shuffle, repeat or volume display is on screen.</summary>
+    public static readonly TimeSpan LivePollInterval = TimeSpan.FromSeconds(10);
+
+    /// <summary>Poll interval while only track-level state (like heart, track name) is on screen.</summary>
+    public static readonly TimeSpan TrackPollInterval = TimeSpan.FromSeconds(30);
+
+    // With no active device nothing changes until the user starts Spotify.
+    private static readonly TimeSpan IdlePollInterval = TimeSpan.FromSeconds(30);
+    // The host redraws a display button every few seconds while it is on
+    // screen; demand older than this means none is shown any more.
+    private static readonly TimeSpan DemandTimeout = TimeSpan.FromSeconds(15);
+    // State this recent is used as is when a command is pressed.
+    private static readonly TimeSpan FreshFor = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan LoopTick = TimeSpan.FromSeconds(1);
+    // When each requested poll interval was last asked for by a display.
+    private readonly Dictionary<TimeSpan, DateTime> _demand = new();
+    private DateTime _lastPollUtc = DateTime.MinValue;
     private static readonly TimeSpan LocalTrustWindow = TimeSpan.FromSeconds(5);
     // Track position lives outside the snapshot: it changes on every poll and
     // would otherwise fire Changed (and redraw every button) each time.
@@ -44,11 +63,10 @@ public sealed class PlayerStateCache : IDisposable
     private int _durationMs;
     private DateTime _progressAtUtc = DateTime.MinValue;
 
-    public PlayerStateCache(SpotifyClientProvider clientProvider, IPluginHost host, TimeSpan? pollInterval = null)
+    public PlayerStateCache(SpotifyClientProvider clientProvider, IPluginHost host)
     {
         _clientProvider = clientProvider;
         _host = host;
-        _pollInterval = pollInterval ?? TimeSpan.FromSeconds(3);
     }
 
     public PlayerSnapshot State { get; private set; } = PlayerSnapshot.Empty;
@@ -64,6 +82,45 @@ public sealed class PlayerStateCache : IDisposable
     public async Task RefreshNowAsync()
     {
         await PollOnceAsync(_cts.Token);
+    }
+
+    /// <summary>
+    /// Called by a display command each time the host draws it, so the cache
+    /// polls while that button is on screen. <paramref name="pollInterval"/> is
+    /// how often its state needs refreshing; the shortest one shown wins.
+    /// </summary>
+    public void MarkDisplayed(TimeSpan pollInterval)
+    {
+        lock (_demand)
+            _demand[pollInterval] = DateTime.UtcNow;
+    }
+
+    /// <summary>Whether a button showing player state is on screen.</summary>
+    public bool HasDemand => DemandedInterval() != null;
+
+    /// <summary>The shortest poll interval a display on screen asks for, or null when none is shown.</summary>
+    private TimeSpan? DemandedInterval()
+    {
+        var cutoff = DateTime.UtcNow - DemandTimeout;
+        lock (_demand)
+        {
+            TimeSpan? shortest = null;
+            foreach (var (interval, markedUtc) in _demand)
+            {
+                if (markedUtc >= cutoff && (shortest == null || interval < shortest))
+                    shortest = interval;
+            }
+            return shortest;
+        }
+    }
+
+    /// <summary>Whether <see cref="State"/> was polled within the last few seconds.</summary>
+    public bool IsFresh => DateTime.UtcNow - _lastPollUtc < FreshFor;
+
+    /// <summary>Polls now unless <see cref="State"/> is fresh. Call before acting on the state.</summary>
+    public async Task EnsureFreshAsync()
+    {
+        if (!IsFresh) await PollOnceAsync(_cts.Token);
     }
 
     /// <summary>
@@ -166,23 +223,23 @@ public sealed class PlayerStateCache : IDisposable
         try { await Task.Delay(TimeSpan.FromMilliseconds(500), ct); }
         catch (OperationCanceledException) { return; }
 
+        // The tick only checks whether a poll is due; it sends nothing itself.
         while (!ct.IsCancellationRequested)
         {
-            await PollOnceAsync(ct);
-            try { await Task.Delay(NextPollDelay(), ct); }
+            if (PollDue()) await PollOnceAsync(ct);
+            try { await Task.Delay(LoopTick, ct); }
             catch (OperationCanceledException) { return; }
         }
     }
 
-    private TimeSpan NextPollDelay()
+    private bool PollDue()
     {
-        if (_clientProvider.RateLimitedUntilUtc is { } until)
-        {
-            var remaining = until - DateTime.UtcNow;
-            if (remaining > TimeSpan.Zero) return remaining;
-        }
+        if (DemandedInterval() is not { } interval) return false;
 
-        return string.IsNullOrEmpty(State.DeviceId) ? IdlePollInterval : _pollInterval;
+        if (string.IsNullOrEmpty(State.DeviceId) && interval < IdlePollInterval)
+            interval = IdlePollInterval;
+
+        return DateTime.UtcNow - _lastPollUtc >= interval;
     }
 
     private async Task PollOnceAsync(CancellationToken ct)
@@ -190,6 +247,9 @@ public sealed class PlayerStateCache : IDisposable
         // Keep the last known state while Spotify blocks requests; an empty
         // snapshot would claim nothing is playing.
         if (_clientProvider.RateLimitedUntilUtc != null) return;
+
+        // Counted from the attempt, so a failing poll is not retried at once.
+        _lastPollUtc = DateTime.UtcNow;
 
         try
         {

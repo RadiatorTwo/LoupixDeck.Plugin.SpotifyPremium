@@ -13,6 +13,7 @@ namespace LoupixDeck.Plugin.SpotifyPremium.Commands.Playback;
 internal sealed class AddToQueueCommand : SpotifyCommandBase
 {
     public AddToQueueCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
+    protected override bool NeedsPlayerState => false;
 
     public override CommandDescriptor Descriptor { get; } = new()
     {

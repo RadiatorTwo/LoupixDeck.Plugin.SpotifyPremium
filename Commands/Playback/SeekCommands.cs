@@ -106,6 +106,7 @@ internal sealed class SeekAdjustment : SpotifyCommandBase, IAdjustmentCommand
         try
         {
             var s = await Client.GetClientAsync(); if (s == null) return;
+            await Player.EnsureFreshAsync();
             await SeekStepBase.SeekBy(s, Player, ticks * SecondsPerTick * 1000);
         }
         catch (APIException ex)
@@ -118,11 +119,13 @@ internal sealed class SeekAdjustment : SpotifyCommandBase, IAdjustmentCommand
     {
         // Press = play/pause toggle, matching the other adjustments.
         var s = await Client.GetClientAsync(); if (s == null) return;
-        await TogglePlaybackAsync(s, Player.State.DeviceId);
+        await Player.EnsureFreshAsync();
+        await TogglePlaybackAsync(s, DeviceId(ctx, Player.State));
     }
 
     public string? GetValueText(CommandContext ctx)
     {
+        ShownState(PlayerStateCache.TrackPollInterval);
         var position = TimeSpan.FromMilliseconds(Player.EstimatePositionMs());
         var duration = TimeSpan.FromMilliseconds(Player.DurationMs);
         return $"{position:m\\:ss} / {duration:m\\:ss}";
