@@ -134,11 +134,14 @@ public sealed class PlayerStateCache : IDisposable
         _boundCheckedUtc = DateTime.UtcNow;
 
         TimeSpan? shortest = null;
+        var bound = new List<string>();
         foreach (var (commandName, interval) in _stateCommands)
         {
             try
             {
-                if (_host.GetButtonStates(commandName).Count > 0 && (shortest == null || interval < shortest))
+                if (_host.GetButtonStates(commandName).Count == 0) continue;
+                bound.Add(commandName);
+                if (shortest == null || interval < shortest)
                     shortest = interval;
             }
             catch (Exception ex)
@@ -147,8 +150,19 @@ public sealed class PlayerStateCache : IDisposable
             }
         }
 
+        TimeSpan? previous;
         lock (_demand)
+        {
+            previous = _boundInterval;
             _boundInterval = shortest;
+        }
+
+        if (shortest != previous)
+        {
+            _host.Logger.Info(shortest is { } every
+                ? $"Polling Spotify every {every.TotalSeconds:0} s for the stateful buttons bound to {string.Join(", ", bound)}."
+                : "No stateful Spotify button is bound; polling only while a Spotify display is on screen.");
+        }
     }
 
     /// <summary>Whether <see cref="State"/> was polled within the last few seconds.</summary>
