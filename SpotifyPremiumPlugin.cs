@@ -31,6 +31,20 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
     private const string SetupGuideUrl = "https://github.com/RadiatorTwo/LoupixDeck.Plugin.SpotifyPremium#setup";
     internal static readonly TimeSpan VolumeOverlayDuration = TimeSpan.FromMilliseconds(1500);
 
+    /// <summary>
+    /// Commands that show player state on a stateful button, with how often the
+    /// player cache polls while one is bound. Kept in step with the states
+    /// pushed in <see cref="OnPlayerStateChanged"/>.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, TimeSpan> StateCommands = new Dictionary<string, TimeSpan>
+    {
+        [TogglePlaybackCommand.Name] = PlayerStateCache.LivePollInterval,
+        [ToggleMuteCommand.Name] = PlayerStateCache.LivePollInterval,
+        [ShufflePlayCommand.Name] = PlayerStateCache.LivePollInterval,
+        [ChangeRepeatStateCommand.Name] = PlayerStateCache.LivePollInterval,
+        [ToggleLikeCommand.Name] = PlayerStateCache.TrackPollInterval
+    };
+
     private IPluginHost _host = null!;
     private TokenStore _tokenStore = null!;
     private SpotifyAuth _auth = null!;
@@ -75,7 +89,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
             () => host.Settings.Get<string>(SettingClientId),
             () => host.Settings.Get<string>(SettingClientSecret));
 
-        _playerState = new PlayerStateCache(_clientProvider, host);
+        _playerState = new PlayerStateCache(_clientProvider, host, StateCommands);
         _playerState.Changed += OnPlayerStateChanged;
         _playerState.Start();
 
