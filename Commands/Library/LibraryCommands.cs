@@ -29,7 +29,7 @@ internal sealed class ToggleLikeCommand : SpotifyCommandBase, IDisplayImageComma
     public static string StateOf(PlayerSnapshot state) => state.IsLiked ? SpotifyStates.Liked : SpotifyStates.NotLiked;
 
     public bool RenderImage(CommandContext ctx, IRenderCanvas canvas) =>
-        SpotifyStates.Resolve(ctx, Name, StateOf(Player.State)) == SpotifyStates.Liked
+        SpotifyStates.Resolve(ctx, Name, StateOf(ShownState(PlayerStateCache.TrackPollInterval))) == SpotifyStates.Liked
             ? SpotifyStates.Draw(canvas, SpotifyIcons.HeartSymbol, PluginText.Tr(ctx.Host, "Liked"), SpotifyStates.Green)
             : SpotifyStates.Draw(canvas, SpotifyIcons.HeartOutlineSymbol, PluginText.Tr(ctx.Host, "Like"), SpotifyStates.Normal);
 

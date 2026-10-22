@@ -30,7 +30,7 @@ internal sealed class TogglePlaybackCommand : SpotifyCommandBase, IDisplayImageC
 
     // Like the Spotify app, the icon shows what a press does: pause while playing, play while paused.
     public bool RenderImage(CommandContext ctx, IRenderCanvas canvas) =>
-        SpotifyStates.Resolve(ctx, Name, StateOf(Player.State)) == SpotifyStates.Playing
+        SpotifyStates.Resolve(ctx, Name, StateOf(ShownState(PlayerStateCache.LivePollInterval))) == SpotifyStates.Playing
             ? SpotifyStates.Draw(canvas, SpotifyIcons.PauseSymbol, PluginText.Tr(ctx.Host, "Playing"), SpotifyStates.Green)
             : SpotifyStates.Draw(canvas, SpotifyIcons.PlaySymbol, PluginText.Tr(ctx.Host, "Paused"), SpotifyStates.Normal);
 
@@ -43,6 +43,7 @@ internal sealed class TogglePlaybackCommand : SpotifyCommandBase, IDisplayImageC
 internal sealed class NextTrackCommand : SpotifyCommandBase
 {
     public NextTrackCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
+    protected override bool NeedsPlayerState => false;
 
     public override CommandDescriptor Descriptor { get; } = new()
     {
@@ -62,6 +63,7 @@ internal sealed class NextTrackCommand : SpotifyCommandBase
 internal sealed class PreviousTrackCommand : SpotifyCommandBase
 {
     public PreviousTrackCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
+    protected override bool NeedsPlayerState => false;
 
     public override CommandDescriptor Descriptor { get; } = new()
     {
@@ -102,7 +104,7 @@ internal sealed class ShufflePlayCommand : SpotifyCommandBase, IDisplayImageComm
     public static string StateOf(PlayerSnapshot state) => state.ShuffleEnabled ? SpotifyStates.On : SpotifyStates.Off;
 
     public bool RenderImage(CommandContext ctx, IRenderCanvas canvas) =>
-        SpotifyStates.Resolve(ctx, Name, StateOf(Player.State)) == SpotifyStates.On
+        SpotifyStates.Resolve(ctx, Name, StateOf(ShownState(PlayerStateCache.LivePollInterval))) == SpotifyStates.On
             ? SpotifyStates.Draw(canvas, SpotifyIcons.ShuffleSymbol, PluginText.Tr(ctx.Host, "Shuffle"), SpotifyStates.Green)
             : SpotifyStates.Draw(canvas, SpotifyIcons.ShuffleOffSymbol, PluginText.Tr(ctx.Host, "Shuffle off"), SpotifyStates.Normal);
 
@@ -146,7 +148,7 @@ internal sealed class ChangeRepeatStateCommand : SpotifyCommandBase, IDisplayIma
     };
 
     public bool RenderImage(CommandContext ctx, IRenderCanvas canvas) =>
-        SpotifyStates.Resolve(ctx, Name, StateOf(Player.State)) switch
+        SpotifyStates.Resolve(ctx, Name, StateOf(ShownState(PlayerStateCache.LivePollInterval))) switch
         {
             SpotifyStates.RepeatOne => SpotifyStates.Draw(canvas, SpotifyIcons.RepeatOnceSymbol, PluginText.Tr(ctx.Host, "Repeat one"), SpotifyStates.Green),
             SpotifyStates.RepeatAll => SpotifyStates.Draw(canvas, SpotifyIcons.RepeatSymbol, PluginText.Tr(ctx.Host, "Repeat all"), SpotifyStates.Green),
@@ -177,6 +179,7 @@ internal sealed class ChangeRepeatStateCommand : SpotifyCommandBase, IDisplayIma
 internal sealed class PlayNavigateLeftCommand : SpotifyCommandBase
 {
     public PlayNavigateLeftCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
+    protected override bool NeedsPlayerState => false;
     public override CommandDescriptor Descriptor { get; } = new()
     {
         CommandName = "SpotifyPremium.PlayNavigate.Left",
@@ -194,6 +197,7 @@ internal sealed class PlayNavigateLeftCommand : SpotifyCommandBase
 internal sealed class PlayNavigateRightCommand : SpotifyCommandBase
 {
     public PlayNavigateRightCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
+    protected override bool NeedsPlayerState => false;
     public override CommandDescriptor Descriptor { get; } = new()
     {
         CommandName = "SpotifyPremium.PlayNavigate.Right",
@@ -227,16 +231,17 @@ internal sealed class PlayAndNavigateAdjustment : SpotifyCommandBase, IAdjustmen
     {
         var s = await Client.GetClientAsync(); if (s == null) return;
         if (ticks > 0)
-            await s.Player.SkipNext(new PlayerSkipNextRequest { DeviceId = Player.State.DeviceId });
+            await s.Player.SkipNext(new PlayerSkipNextRequest { DeviceId = DeviceId(ctx, Player.State) });
         else if (ticks < 0)
-            await s.Player.SkipPrevious(new PlayerSkipPreviousRequest { DeviceId = Player.State.DeviceId });
+            await s.Player.SkipPrevious(new PlayerSkipPreviousRequest { DeviceId = DeviceId(ctx, Player.State) });
     }
 
     public async Task ApplyReset(CommandContext ctx)
     {
         var s = await Client.GetClientAsync(); if (s == null) return;
-        await TogglePlaybackAsync(s, Player.State.DeviceId);
+        await Player.EnsureFreshAsync();
+        await TogglePlaybackAsync(s, DeviceId(ctx, Player.State));
     }
 
-    public string? GetValueText(CommandContext ctx) => Player.State.TrackName;
+    public string? GetValueText(CommandContext ctx) => ShownState(PlayerStateCache.TrackPollInterval).TrackName;
 }

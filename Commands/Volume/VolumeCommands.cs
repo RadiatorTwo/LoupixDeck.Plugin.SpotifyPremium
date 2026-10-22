@@ -72,7 +72,7 @@ internal sealed class ToggleMuteCommand : SpotifyCommandBase, IDisplayImageComma
 
     public bool RenderImage(CommandContext ctx, IRenderCanvas canvas)
     {
-        PlayerSnapshot state = Player.State;
+        PlayerSnapshot state = ShownState(PlayerStateCache.LivePollInterval);
         return SpotifyStates.Resolve(ctx, Name, StateOf(state)) == SpotifyStates.Muted
             ? SpotifyStates.Draw(canvas, SpotifyIcons.VolumeOffSymbol, PluginText.Tr(ctx.Host, "Muted"), SpotifyStates.Red)
             : SpotifyStates.Draw(canvas, SpotifyIcons.VolumeSymbol, $"{state.VolumePercent}%", SpotifyStates.Normal);
@@ -159,8 +159,19 @@ internal abstract class VolumeStepBase : SpotifyCommandBase
 
     public override ButtonTargets SupportedTargets => ButtonTargets.RotaryEncoder | ButtonTargets.SimpleButton;
 
-    public override Task Execute(CommandContext ctx)
+    public override async Task Execute(CommandContext ctx)
     {
+        // The re-sync below reads the cached volume; without a display on
+        // screen it may be hours old, so fetch it first.
+        bool resync;
+        lock (Gate)
+            resync = _localVolume < 0 || DateTime.UtcNow - _lastTickUtc > ResyncAfter;
+        if (resync && Client.RateLimitedUntilUtc == null)
+        {
+            try { await Player.EnsureFreshAsync(); }
+            catch (Exception ex) { Logger.Warn($"{Descriptor.CommandName}: refreshing the volume failed: {ex.Message}"); }
+        }
+
         int target;
         lock (Gate)
         {
@@ -193,8 +204,6 @@ internal abstract class VolumeStepBase : SpotifyCommandBase
         // running worker picks it up on its next loop iteration.
         if (Interlocked.CompareExchange(ref _workerRunning, 1, 0) == 0)
             _ = Task.Run(() => DrainAsync(ctx));
-
-        return Task.CompletedTask;
     }
 
     private async Task DrainAsync(CommandContext ctx)
@@ -232,6 +241,10 @@ internal abstract class VolumeStepBase : SpotifyCommandBase
                     {
                         DeviceId = DeviceId(ctx, Player.State)
                     });
+                }
+                catch (APITooManyRequestsException ex)
+                {
+                    Client.NoteRateLimit(ex);
                 }
                 catch (APIException ex)
                 {
@@ -306,16 +319,18 @@ internal sealed class SpotifyVolumeAdjustment : SpotifyCommandBase, IAdjustmentC
     public async Task ApplyAdjustment(CommandContext ctx, int ticks)
     {
         var s = await Client.GetClientAsync(); if (s == null) return;
+        await Player.EnsureFreshAsync();
         var target = Math.Clamp(Player.State.VolumePercent + ticks * 2, 0, 100);
-        await SetVolumeAsync(s, target, Player.State.DeviceId);
+        await SetVolumeAsync(s, target, DeviceId(ctx, Player.State));
     }
 
     public async Task ApplyReset(CommandContext ctx)
     {
         // Press = play/pause toggle, matching the Loupedeck original.
         var s = await Client.GetClientAsync(); if (s == null) return;
-        await TogglePlaybackAsync(s, Player.State.DeviceId);
+        await Player.EnsureFreshAsync();
+        await TogglePlaybackAsync(s, DeviceId(ctx, Player.State));
     }
 
-    public string? GetValueText(CommandContext ctx) => $"{Player.State.VolumePercent}%";
+    public string? GetValueText(CommandContext ctx) => $"{ShownState(PlayerStateCache.LivePollInterval).VolumePercent}%";
 }

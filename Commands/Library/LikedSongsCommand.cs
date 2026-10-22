@@ -15,6 +15,7 @@ internal sealed class PlayLikedSongsCommand : SpotifyCommandBase
     private string? _userId;
 
     public PlayLikedSongsCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
+    protected override bool NeedsPlayerState => false;
 
     public override CommandDescriptor Descriptor { get; } = new()
     {

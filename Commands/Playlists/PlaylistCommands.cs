@@ -51,6 +51,10 @@ internal sealed class StartPlaylistCommand : IPluginCommand
                 ContextUri = $"spotify:playlist:{ctx.Parameters[0]}"
             });
         }
+        catch (APITooManyRequestsException ex)
+        {
+            _client.NoteRateLimit(ex);
+        }
         catch (Exception ex)
         {
             _logger.Warn($"StartPlaylist failed: {ex.Message}");
@@ -137,6 +141,7 @@ internal sealed class RemoveFromPlaylistCommand : SpotifyCommandBase
 internal sealed class StartAlbumCommand : SpotifyCommandBase
 {
     public StartAlbumCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
+    protected override bool NeedsPlayerState => false;
 
     public override CommandDescriptor Descriptor { get; } = new()
     {

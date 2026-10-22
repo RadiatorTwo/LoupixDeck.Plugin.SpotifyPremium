@@ -4,17 +4,23 @@ using SpotifyAPI.Web;
 namespace LoupixDeck.Plugin.SpotifyPremium.Spotify;
 
 /// <summary>
-/// Polls Spotify's <c>/me/player</c> in the background and exposes the latest
-/// snapshot. Commands consult <see cref="State"/> directly when rendering text
-/// or making toggle decisions, instead of each issuing their own API call —
-/// avoids hammering Spotify when multiple buttons reflect the same state.
+/// Holds the latest snapshot of Spotify's <c>/me/player</c>. Commands consult
+/// <see cref="State"/> directly when rendering text or making toggle decisions,
+/// instead of each issuing their own API call.
+///
+/// Polls in the background only while a button that shows player state is on
+/// screen (see <see cref="MarkDisplayed"/>) or a stateful button is bound to
+/// such a command, which covers the LED buttons the host never draws. One poll
+/// serves every button, at the shortest interval any of them needs. Every Spotify request counts
+/// against the developer account's daily Development Mode quota, so with only
+/// plain buttons nothing is polled and a command fetches the state it needs
+/// when pressed (<see cref="EnsureFreshAsync"/>).
 /// Fires <see cref="Changed"/> only when a relevant field actually differs.
 /// </summary>
 public sealed class PlayerStateCache : IDisposable
 {
     private readonly SpotifyClientProvider _clientProvider;
     private readonly IPluginHost _host;
-    private readonly TimeSpan _pollInterval;
     private readonly CancellationTokenSource _cts = new();
     private Task? _loopTask;
     // Local volume writes win over polled volume for a short window. After
@@ -26,13 +32,35 @@ public sealed class PlayerStateCache : IDisposable
     private DateTime _lastLocalPlayingUtc = DateTime.MinValue;
     private DateTime _lastLocalShuffleUtc = DateTime.MinValue;
     private DateTime _lastLocalRepeatUtc = DateTime.MinValue;
-    // The like state is not part of /me/player: it is checked once per track
-    // and re-checked now and then, so a like made in the Spotify app shows up.
+    // The like state is not part of /me/player: it is checked once per track.
+    // A like made in the Spotify app during the track shows from the next one.
     private string _likedTrackUri = string.Empty;
     private bool _liked;
-    private DateTime _likedCheckedUtc = DateTime.MinValue;
-    private DateTime _lastLocalLikedUtc = DateTime.MinValue;
-    private static readonly TimeSpan LikedRecheckInterval = TimeSpan.FromSeconds(30);
+
+    /// <summary>Poll interval while a play/pause, mute, shuffle, repeat or volume display is on screen.</summary>
+    public static readonly TimeSpan LivePollInterval = TimeSpan.FromSeconds(10);
+
+    /// <summary>Poll interval while only track-level state (like heart, track name) is on screen.</summary>
+    public static readonly TimeSpan TrackPollInterval = TimeSpan.FromSeconds(30);
+
+    // With no active device nothing changes until the user starts Spotify.
+    private static readonly TimeSpan IdlePollInterval = TimeSpan.FromSeconds(30);
+    // The host redraws a display button every few seconds while it is on
+    // screen; demand older than this means none is shown any more.
+    private static readonly TimeSpan DemandTimeout = TimeSpan.FromSeconds(15);
+    // State this recent is used as is when a command is pressed.
+    private static readonly TimeSpan FreshFor = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan LoopTick = TimeSpan.FromSeconds(1);
+    // When each requested poll interval was last asked for by a display.
+    private readonly Dictionary<TimeSpan, DateTime> _demand = new();
+    // Commands whose bound stateful buttons need polling, with their interval;
+    // the host's button list is read every BoundCheckInterval, which costs no
+    // Spotify request.
+    private static readonly TimeSpan BoundCheckInterval = TimeSpan.FromSeconds(30);
+    private readonly IReadOnlyDictionary<string, TimeSpan> _stateCommands;
+    private TimeSpan? _boundInterval;
+    private DateTime _boundCheckedUtc = DateTime.MinValue;
+    private DateTime _lastPollUtc = DateTime.MinValue;
     private static readonly TimeSpan LocalTrustWindow = TimeSpan.FromSeconds(5);
     // Track position lives outside the snapshot: it changes on every poll and
     // would otherwise fire Changed (and redraw every button) each time.
@@ -41,11 +69,14 @@ public sealed class PlayerStateCache : IDisposable
     private int _durationMs;
     private DateTime _progressAtUtc = DateTime.MinValue;
 
-    public PlayerStateCache(SpotifyClientProvider clientProvider, IPluginHost host, TimeSpan? pollInterval = null)
+    /// <param name="stateCommands">Commands that show player state on a stateful
+    /// button, with how often that state needs refreshing.</param>
+    public PlayerStateCache(SpotifyClientProvider clientProvider, IPluginHost host,
+        IReadOnlyDictionary<string, TimeSpan> stateCommands)
     {
         _clientProvider = clientProvider;
         _host = host;
-        _pollInterval = pollInterval ?? TimeSpan.FromSeconds(3);
+        _stateCommands = stateCommands;
     }
 
     public PlayerSnapshot State { get; private set; } = PlayerSnapshot.Empty;
@@ -61,6 +92,86 @@ public sealed class PlayerStateCache : IDisposable
     public async Task RefreshNowAsync()
     {
         await PollOnceAsync(_cts.Token);
+    }
+
+    /// <summary>
+    /// Called by a display command each time the host draws it, so the cache
+    /// polls while that button is on screen. <paramref name="pollInterval"/> is
+    /// how often its state needs refreshing; the shortest one shown wins.
+    /// </summary>
+    public void MarkDisplayed(TimeSpan pollInterval)
+    {
+        lock (_demand)
+            _demand[pollInterval] = DateTime.UtcNow;
+    }
+
+    /// <summary>Whether a button showing player state is on screen.</summary>
+    public bool HasDemand => DemandedInterval() != null;
+
+    /// <summary>
+    /// The shortest poll interval a display on screen or a bound stateful
+    /// button asks for, or null when nothing needs polling.
+    /// </summary>
+    private TimeSpan? DemandedInterval()
+    {
+        var cutoff = DateTime.UtcNow - DemandTimeout;
+        lock (_demand)
+        {
+            TimeSpan? shortest = _boundInterval;
+            foreach (var (interval, markedUtc) in _demand)
+            {
+                if (markedUtc >= cutoff && (shortest == null || interval < shortest))
+                    shortest = interval;
+            }
+            return shortest;
+        }
+    }
+
+    /// <summary>Re-reads which state commands have a stateful button bound.</summary>
+    private void CheckBoundButtons()
+    {
+        if (DateTime.UtcNow - _boundCheckedUtc < BoundCheckInterval) return;
+        _boundCheckedUtc = DateTime.UtcNow;
+
+        TimeSpan? shortest = null;
+        var bound = new List<string>();
+        foreach (var (commandName, interval) in _stateCommands)
+        {
+            try
+            {
+                if (_host.GetButtonStates(commandName).Count == 0) continue;
+                bound.Add(commandName);
+                if (shortest == null || interval < shortest)
+                    shortest = interval;
+            }
+            catch (Exception ex)
+            {
+                _host.Logger.Warn($"Reading the buttons bound to {commandName} failed: {ex.Message}");
+            }
+        }
+
+        TimeSpan? previous;
+        lock (_demand)
+        {
+            previous = _boundInterval;
+            _boundInterval = shortest;
+        }
+
+        if (shortest != previous)
+        {
+            _host.Logger.Info(shortest is { } every
+                ? $"Polling Spotify every {every.TotalSeconds:0} s for the stateful buttons bound to {string.Join(", ", bound)}."
+                : "No stateful Spotify button is bound; polling only while a Spotify display is on screen.");
+        }
+    }
+
+    /// <summary>Whether <see cref="State"/> was polled within the last few seconds.</summary>
+    public bool IsFresh => DateTime.UtcNow - _lastPollUtc < FreshFor;
+
+    /// <summary>Polls now unless <see cref="State"/> is fresh. Call before acting on the state.</summary>
+    public async Task EnsureFreshAsync()
+    {
+        if (!IsFresh) await PollOnceAsync(_cts.Token);
     }
 
     /// <summary>
@@ -96,8 +207,6 @@ public sealed class PlayerStateCache : IDisposable
     {
         _likedTrackUri = State.TrackUri;
         _liked = isLiked;
-        _likedCheckedUtc = DateTime.UtcNow;
-        _lastLocalLikedUtc = DateTime.UtcNow;
         Update(State with { IsLiked = isLiked });
     }
 
@@ -163,16 +272,35 @@ public sealed class PlayerStateCache : IDisposable
         try { await Task.Delay(TimeSpan.FromMilliseconds(500), ct); }
         catch (OperationCanceledException) { return; }
 
+        // The tick only checks whether a poll is due; it sends nothing itself.
         while (!ct.IsCancellationRequested)
         {
-            await PollOnceAsync(ct);
-            try { await Task.Delay(_pollInterval, ct); }
+            CheckBoundButtons();
+            if (PollDue()) await PollOnceAsync(ct);
+            try { await Task.Delay(LoopTick, ct); }
             catch (OperationCanceledException) { return; }
         }
     }
 
+    private bool PollDue()
+    {
+        if (DemandedInterval() is not { } interval) return false;
+
+        if (string.IsNullOrEmpty(State.DeviceId) && interval < IdlePollInterval)
+            interval = IdlePollInterval;
+
+        return DateTime.UtcNow - _lastPollUtc >= interval;
+    }
+
     private async Task PollOnceAsync(CancellationToken ct)
     {
+        // Keep the last known state while Spotify blocks requests; an empty
+        // snapshot would claim nothing is playing.
+        if (_clientProvider.RateLimitedUntilUtc != null) return;
+
+        // Counted from the attempt, so a failing poll is not retried at once.
+        _lastPollUtc = DateTime.UtcNow;
+
         try
         {
             var client = await _clientProvider.GetClientAsync(ct);
@@ -230,6 +358,10 @@ public sealed class PlayerStateCache : IDisposable
 
             Update(snap);
         }
+        catch (APITooManyRequestsException ex)
+        {
+            _clientProvider.NoteRateLimit(ex);
+        }
         catch (APIException ex)
         {
             _host.Logger.Warn($"PlayerState poll failed: {ex.Message}");
@@ -242,33 +374,32 @@ public sealed class PlayerStateCache : IDisposable
 
     /// <summary>
     /// Whether <paramref name="trackUri"/> is in the user's Liked Songs. Asks
-    /// Spotify only on a track change or after <see cref="LikedRecheckInterval"/>;
-    /// a local toggle stays authoritative for the trust window.
+    /// Spotify once per track; a failed check is tried again on the next poll.
     /// </summary>
     private async Task<bool> ResolveLikedAsync(SpotifyAPI.Web.SpotifyClient client, string trackUri)
     {
         if (string.IsNullOrEmpty(trackUri)) return false;
 
-        bool sameTrack = trackUri == _likedTrackUri;
-        if (sameTrack && (DateTime.UtcNow - _lastLocalLikedUtc < LocalTrustWindow
-                          || DateTime.UtcNow - _likedCheckedUtc < LikedRecheckInterval))
-            return _liked;
+        if (trackUri == _likedTrackUri) return _liked;
 
         try
         {
             var saved = await client.Library.CheckItems(new LibraryCheckItemsRequest(new[] { trackUri }));
             _liked = saved is { Count: > 0 } && saved[0];
+            _likedTrackUri = trackUri;
+            return _liked;
+        }
+        catch (APITooManyRequestsException ex)
+        {
+            _clientProvider.NoteRateLimit(ex);
         }
         catch (APIException ex)
         {
             _host.Logger.Warn($"Like state check failed: {ex.Message}");
-            // Keep the last known value for this track, assume "not liked" for a new one.
-            if (!sameTrack) _liked = false;
         }
 
-        _likedTrackUri = trackUri;
-        _likedCheckedUtc = DateTime.UtcNow;
-        return _liked;
+        // Shown as "not liked" until a check succeeds.
+        return false;
     }
 
     private void Update(PlayerSnapshot snap)

@@ -91,6 +91,10 @@ public sealed class DeviceSelectorFolderProvider : FolderProviderBase
             _activeDeviceId = devicesResp.Devices.FirstOrDefault(d => d.IsActive)?.Id ?? string.Empty;
             RaiseEntriesChanged();
         }
+        catch (APITooManyRequestsException ex)
+        {
+            _clientProvider.NoteRateLimit(ex);
+        }
         catch (Exception ex)
         {
             _logger.Warn($"Failed to load device list: {ex.Message}");
@@ -105,6 +109,10 @@ public sealed class DeviceSelectorFolderProvider : FolderProviderBase
             if (spotify == null) return;
             await spotify.Player.TransferPlayback(new PlayerTransferPlaybackRequest(new[] { deviceId }));
             await _playerState.RefreshNowAsync();
+        }
+        catch (APITooManyRequestsException ex)
+        {
+            _clientProvider.NoteRateLimit(ex);
         }
         catch (Exception ex)
         {

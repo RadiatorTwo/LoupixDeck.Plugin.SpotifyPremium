@@ -16,7 +16,7 @@ namespace LoupixDeck.Plugin.SpotifyPremium;
 /// SpotifyPremiumPlugin. Owns the OAuth flow, a refresh-aware Spotify client,
 /// and a background player-state cache that all commands consult.
 /// </summary>
-public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IMenuContributor
+public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IMenuContributor, IPluginRequirements
 {
     private const string SettingClientId = "client_id";
     private const string SettingClientSecret = "client_secret";
@@ -30,6 +30,20 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
     private const string DeveloperDashboardUrl = "https://developer.spotify.com/dashboard";
     private const string SetupGuideUrl = "https://github.com/RadiatorTwo/LoupixDeck.Plugin.SpotifyPremium#setup";
     internal static readonly TimeSpan VolumeOverlayDuration = TimeSpan.FromMilliseconds(1500);
+
+    /// <summary>
+    /// Commands that show player state on a stateful button, with how often the
+    /// player cache polls while one is bound. Kept in step with the states
+    /// pushed in <see cref="OnPlayerStateChanged"/>.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, TimeSpan> StateCommands = new Dictionary<string, TimeSpan>
+    {
+        [TogglePlaybackCommand.Name] = PlayerStateCache.LivePollInterval,
+        [ToggleMuteCommand.Name] = PlayerStateCache.LivePollInterval,
+        [ShufflePlayCommand.Name] = PlayerStateCache.LivePollInterval,
+        [ChangeRepeatStateCommand.Name] = PlayerStateCache.LivePollInterval,
+        [ToggleLikeCommand.Name] = PlayerStateCache.TrackPollInterval
+    };
 
     private IPluginHost _host = null!;
     private TokenStore _tokenStore = null!;
@@ -75,7 +89,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
             () => host.Settings.Get<string>(SettingClientId),
             () => host.Settings.Get<string>(SettingClientSecret));
 
-        _playerState = new PlayerStateCache(_clientProvider, host);
+        _playerState = new PlayerStateCache(_clientProvider, host, StateCommands);
         _playerState.Changed += OnPlayerStateChanged;
         _playerState.Start();
 
@@ -127,6 +141,35 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
     public override void Shutdown()
     {
         _playerState?.Dispose();
+    }
+
+    // ---- IPluginRequirements ----
+
+    private const string RateLimitRequirementId = "spotify-rate-limit";
+
+    /// <summary>
+    /// Reports a Spotify rate limit block as an unmet requirement, so the host flags the plugin
+    /// as needing attention instead of it looking connected while every button does nothing.
+    /// </summary>
+    public IReadOnlyList<PluginRequirement> GetRequirements()
+    {
+        DateTime? until = _clientProvider?.RateLimitedUntilUtc;
+
+        return
+        [
+            new PluginRequirement
+            {
+                Id = RateLimitRequirementId,
+                Name = "Spotify requests",
+                IsMet = until == null,
+                Message = until is { } end
+                    ? PluginText.Format(_host, "Spotify has paused requests from this app until {0}. Buttons do nothing until then.", end.ToLocalTime().ToString("t"))
+                    : null,
+                InstallHint = until == null
+                    ? null
+                    : Tr("Wait until then. Reconnecting does not help, as the pause applies to the Client ID of your Spotify app.")
+            }
+        ];
     }
 
     // ---- IPluginSettingsPage ----
@@ -414,6 +457,11 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
                 }
             ];
         }
+        catch (APITooManyRequestsException ex)
+        {
+            _clientProvider.NoteRateLimit(ex);
+            return new List<MenuNode>();
+        }
         catch (Exception ex)
         {
             _host.Logger.Warn($"Failed to build playlist menu: {ex.Message}");
@@ -453,6 +501,11 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
             return saved.Count == 0
                 ? [byLink]
                 : [new MenuNode { Name = "Start Saved Album", Children = saved }, byLink];
+        }
+        catch (APITooManyRequestsException ex)
+        {
+            _clientProvider.NoteRateLimit(ex);
+            return [byLink];
         }
         catch (Exception ex)
         {
