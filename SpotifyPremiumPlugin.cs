@@ -562,8 +562,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
             "SpotifyPremium.ChangeRepeatState",
             "SpotifyPremium.ToggleMute",
             "SpotifyPremium.ToggleLike",
-            // Track name and time on the Seek dial, and the cover.
-            "SpotifyPremium.SeekAdjustment",
+            // The cover; the dials follow in RefreshDials.
             AlbumArtCommand.Name
         })
         {
