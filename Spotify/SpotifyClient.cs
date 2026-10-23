@@ -10,7 +10,7 @@ namespace LoupixDeck.Plugin.SpotifyPremium.Spotify;
 /// <see cref="GetClientAsync"/> so a near-expiry access token is refreshed
 /// transparently before the call.
 /// </summary>
-public sealed class SpotifyClientProvider
+public sealed class SpotifyClientProvider : IDisposable
 {
     private readonly IPluginHost _host;
     private readonly TokenStore _tokenStore;
@@ -28,6 +28,9 @@ public sealed class SpotifyClientProvider
     private static readonly TimeSpan DefaultRetryAfter = TimeSpan.FromSeconds(30);
     private readonly object _rateLimitGate = new();
     private DateTime _rateLimitedUntilUtc = DateTime.MinValue;
+    // Cancels the timers that report the end of a block, so an unloaded
+    // plugin does not call into the host hours later.
+    private readonly CancellationTokenSource _cts = new();
 
     public SpotifyClientProvider(
         IPluginHost host,
@@ -78,11 +81,15 @@ public sealed class SpotifyClientProvider
 
         // A longer block set in the meantime makes this check a no-op; its own
         // timer reports the end.
-        _ = Task.Delay(wait + TimeSpan.FromSeconds(1)).ContinueWith(_ =>
+        _ = Task.Delay(wait + TimeSpan.FromSeconds(1), _cts.Token).ContinueWith(_ =>
         {
             if (RateLimitedUntilUtc == null) RaiseRateLimitChanged();
-        }, TaskScheduler.Default);
+        }, _cts.Token, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
     }
+
+    // Cancel only: a request still in flight may call NoteRateLimit after
+    // this, and a disposed source would throw on its token.
+    public void Dispose() => _cts.Cancel();
 
     private void RaiseRateLimitChanged()
     {

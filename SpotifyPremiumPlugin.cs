@@ -144,6 +144,11 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
     public override void Shutdown()
     {
         _playerState?.Dispose();
+        if (_clientProvider != null)
+        {
+            _clientProvider.RateLimitChanged -= RequestRequirementsRefresh;
+            _clientProvider.Dispose();
+        }
     }
 
     // ---- IPluginRequirements ----
