@@ -36,6 +36,11 @@ public sealed class PlayerStateCache : IDisposable
     // A like made in the Spotify app during the track shows from the next one.
     private string _likedTrackUri = string.Empty;
     private bool _liked;
+    // A track whose like check failed is asked again only after a pause, so a
+    // check that keeps failing does not add a request to every poll.
+    private static readonly TimeSpan LikedRetryInterval = TimeSpan.FromSeconds(60);
+    private string _likedFailedUri = string.Empty;
+    private DateTime _likedRetryUtc = DateTime.MinValue;
 
     /// <summary>Poll interval while a play/pause, mute, shuffle, repeat or volume display is on screen.</summary>
     public static readonly TimeSpan LivePollInterval = TimeSpan.FromSeconds(10);
@@ -435,7 +440,9 @@ public sealed class PlayerStateCache : IDisposable
 
     /// <summary>
     /// Whether <paramref name="trackUri"/> is in the user's Liked Songs. Asks
-    /// Spotify once per track; a failed check is tried again on the next poll.
+    /// Spotify once per track; a failed check is tried again after
+    /// <see cref="LikedRetryInterval"/>. A 429 is not caught here: it ends the
+    /// poll in <see cref="PollOnceAsync"/>, so the last known state stays.
     /// </summary>
     private async Task<bool> ResolveLikedAsync(SpotifyAPI.Web.SpotifyClient client, string trackUri)
     {
@@ -443,24 +450,26 @@ public sealed class PlayerStateCache : IDisposable
 
         if (trackUri == _likedTrackUri) return _liked;
 
+        // Shown as "not liked" until a check succeeds.
+        if (trackUri == _likedFailedUri && DateTime.UtcNow < _likedRetryUtc) return false;
+
         try
         {
             var saved = await client.Library.CheckItems(new LibraryCheckItemsRequest(new[] { trackUri }));
             _liked = saved is { Count: > 0 } && saved[0];
             _likedTrackUri = trackUri;
+            _likedFailedUri = string.Empty;
             return _liked;
         }
-        catch (APITooManyRequestsException ex)
+        catch (APIException ex) when (ex is not APITooManyRequestsException)
         {
-            _clientProvider.NoteRateLimit(ex);
+            // Logged once per track, not on every retry.
+            if (trackUri != _likedFailedUri)
+                _host.Logger.Warn($"Like state check failed: {ex.Message}");
+            _likedFailedUri = trackUri;
+            _likedRetryUtc = DateTime.UtcNow + LikedRetryInterval;
+            return false;
         }
-        catch (APIException ex)
-        {
-            _host.Logger.Warn($"Like state check failed: {ex.Message}");
-        }
-
-        // Shown as "not liked" until a check succeeds.
-        return false;
     }
 
     private void Update(PlayerSnapshot snap)
