@@ -68,6 +68,14 @@ public sealed class PlayerStateCache : IDisposable
     private int _progressMs;
     private int _durationMs;
     private DateTime _progressAtUtc = DateTime.MinValue;
+    // A track change shows on screen as soon as Spotify reports it: once the
+    // estimated position passes the end of the track, and for a few seconds
+    // after a skip or a new playlist from the deck (Spotify reports the new
+    // track only after a moment). Both only while something is on screen.
+    private static readonly TimeSpan TrackEndRetry = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan TrackChangeWindow = TimeSpan.FromSeconds(5);
+    private string _changingFromTrackId = string.Empty;
+    private DateTime _trackChangeUntilUtc = DateTime.MinValue;
 
     /// <param name="stateCommands">Commands that show player state on a stateful
     /// button, with how often that state needs refreshing.</param>
@@ -263,8 +271,43 @@ public sealed class PlayerStateCache : IDisposable
         {
             _progressMs = positionMs;
             _progressAtUtc = DateTime.UtcNow;
+            LastLocalSeekUtc = _progressAtUtc;
         }
     }
+
+    /// <summary>
+    /// Called after a command that moves to another track (skip, a new
+    /// playlist, album or Liked Songs), so the next few polls come every
+    /// second until Spotify reports a different track.
+    /// </summary>
+    public void ExpectTrackChange()
+    {
+        lock (_progressGate)
+        {
+            _changingFromTrackId = State.TrackId;
+            _trackChangeUntilUtc = DateTime.UtcNow + TrackChangeWindow;
+        }
+    }
+
+    private bool TrackChangePending()
+    {
+        lock (_progressGate)
+            return DateTime.UtcNow < _trackChangeUntilUtc && State.TrackId == _changingFromTrackId;
+    }
+
+    /// <summary>Whether the track should have finished by now, going by the last polled position.</summary>
+    private bool TrackEnded()
+    {
+        lock (_progressGate)
+        {
+            if (!State.IsPlaying || _durationMs <= 0) return false;
+            var position = _progressMs + (DateTime.UtcNow - _progressAtUtc).TotalMilliseconds;
+            return position >= _durationMs + 500;
+        }
+    }
+
+    /// <summary>When a seek was last requested from the deck, so a display can tell scrubbing from playback.</summary>
+    public DateTime LastLocalSeekUtc { get; private set; } = DateTime.MinValue;
 
     private async Task LoopAsync(CancellationToken ct)
     {
@@ -285,6 +328,10 @@ public sealed class PlayerStateCache : IDisposable
     private bool PollDue()
     {
         if (DemandedInterval() is not { } interval) return false;
+
+        // Every loop tick until the new track shows, then the normal interval.
+        if (TrackChangePending()) return true;
+        if (TrackEnded() && DateTime.UtcNow - _lastPollUtc >= TrackEndRetry) return true;
 
         if (string.IsNullOrEmpty(State.DeviceId) && interval < IdlePollInterval)
             interval = IdlePollInterval;
@@ -350,6 +397,7 @@ public sealed class PlayerStateCache : IDisposable
                 TrackUri = track?.Uri ?? string.Empty,
                 TrackName = track?.Name ?? string.Empty,
                 ArtistName = track?.Artists?.FirstOrDefault()?.Name ?? string.Empty,
+                AlbumImageUrl = CoverUrl(track),
                 DeviceId = playback.Device?.Id ?? string.Empty,
                 DeviceName = playback.Device?.Name ?? string.Empty,
                 VolumePercent = volume,
@@ -370,6 +418,19 @@ public sealed class PlayerStateCache : IDisposable
         {
             _host.Logger.Error("PlayerState poll error", ex);
         }
+    }
+
+    /// <summary>
+    /// The cover to show: the smallest one still 300 px wide, which is sharp on
+    /// the 240 px CT wheel, else the largest there is.
+    /// </summary>
+    private static string CoverUrl(FullTrack? track)
+    {
+        var images = track?.Album?.Images;
+        if (images is not { Count: > 0 }) return string.Empty;
+        var image = images.Where(i => i.Width >= 300).MinBy(i => i.Width)
+                    ?? images.MaxBy(i => i.Width);
+        return image?.Url ?? string.Empty;
     }
 
     /// <summary>
@@ -427,6 +488,7 @@ public sealed record PlayerSnapshot
     public string TrackUri { get; init; } = string.Empty;
     public string TrackName { get; init; } = string.Empty;
     public string ArtistName { get; init; } = string.Empty;
+    public string AlbumImageUrl { get; init; } = string.Empty;
     public string DeviceId { get; init; } = string.Empty;
     public string DeviceName { get; init; } = string.Empty;
     public int VolumePercent { get; init; }

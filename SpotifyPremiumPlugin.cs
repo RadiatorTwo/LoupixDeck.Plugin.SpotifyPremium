@@ -58,7 +58,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
         Id = "spotifypremium",
         Name = "Spotify Premium",
         Version = new Version(1, 3, 0),
-        SdkVersion = new Version(1, 28, 0),
+        SdkVersion = new Version(1, 30, 0),
         Author = "RadiatorTwo",
         Description = "Control Spotify Premium from LoupixDeck: playback, volume, devices, playlists and likes.",
         Icon = LoadIcon()
@@ -116,12 +116,13 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
             new SeekForwardCommand(_clientProvider, _playerState, host.Logger),
             new SeekBackwardCommand(_clientProvider, _playerState, host.Logger),
             new SeekAdjustment(_clientProvider, _playerState, host.Logger),
+            new AlbumArtCommand(_clientProvider, _playerState, new AlbumArtCache(host, AlbumArtCommand.Name), host.Logger),
             new AddToQueueCommand(_clientProvider, _playerState, host.Logger),
             new ToggleLikeCommand(_clientProvider, _playerState, host.Logger),
             new PlayLikedSongsCommand(_clientProvider, _playerState, host.Logger),
             new SaveToPlaylistCommand(_clientProvider, _playerState, host.Logger),
             new RemoveFromPlaylistCommand(_clientProvider, _playerState, host.Logger),
-            new StartPlaylistCommand(_clientProvider, host.Logger),
+            new StartPlaylistCommand(_clientProvider, _playerState, host.Logger),
             new StartAlbumCommand(_clientProvider, _playerState, host.Logger),
             new OpenDeviceSelectorCommand(_clientProvider, _playerState)
         ];
@@ -382,6 +383,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
         ["SpotifyPremium.SeekForward"]        = "Playback",
         ["SpotifyPremium.SeekBackward"]       = "Playback",
         ["SpotifyPremium.SeekAdjustment"]     = "Playback",
+        ["SpotifyPremium.AlbumArt"]           = "Playback",
         ["SpotifyPremium.AddToQueue"]         = "Playback",
         ["SpotifyPremium.Mute"]               = "Volume",
         ["SpotifyPremium.Unmute"]             = "Volume",
@@ -553,7 +555,10 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
             "SpotifyPremium.ShufflePlay",
             "SpotifyPremium.ChangeRepeatState",
             "SpotifyPremium.ToggleMute",
-            "SpotifyPremium.ToggleLike"
+            "SpotifyPremium.ToggleLike",
+            // Track name and time on the Seek dial, and the cover.
+            "SpotifyPremium.SeekAdjustment",
+            AlbumArtCommand.Name
         })
         {
             try { _host.RequestButtonRefresh(name); }

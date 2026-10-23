@@ -123,11 +123,29 @@ internal sealed class SeekAdjustment : SpotifyCommandBase, IAdjustmentCommand
         await TogglePlaybackAsync(s, DeviceId(ctx, Player.State));
     }
 
-    public string? GetValueText(CommandContext ctx)
+    /// <summary>
+    /// The position on the track's length, with the time as the text and the track name as the
+    /// detail, so a wheel or key layout can show either in a text layer of its own.
+    /// </summary>
+    public AdjustmentValue? GetValue(CommandContext ctx)
     {
-        ShownState(PlayerStateCache.TrackPollInterval);
-        var position = TimeSpan.FromMilliseconds(Player.EstimatePositionMs());
-        var duration = TimeSpan.FromMilliseconds(Player.DurationMs);
-        return $"{position:m\\:ss} / {duration:m\\:ss}";
+        var state = ShownState(PlayerStateCache.TrackPollInterval);
+        var positionMs = Player.EstimatePositionMs();
+        var durationMs = Player.DurationMs;
+        // Without a known length there is no scale, so the dial shows the text alone.
+        var normalized = durationMs > 0 ? (double)positionMs / durationMs : double.NaN;
+        return new AdjustmentValue(normalized, $"{FormatTime(positionMs)} / {FormatTime(durationMs)}")
+        {
+            Detail = string.IsNullOrEmpty(state.TrackName) ? null : state.TrackName
+        };
+    }
+
+    /// <summary>m:ss, or h:mm:ss from an hour up (long podcast episodes and mixes).</summary>
+    internal static string FormatTime(int ms)
+    {
+        var time = TimeSpan.FromMilliseconds(ms);
+        return time.TotalHours >= 1
+            ? time.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
+            : time.ToString(@"m\:ss", CultureInfo.InvariantCulture);
     }
 }
