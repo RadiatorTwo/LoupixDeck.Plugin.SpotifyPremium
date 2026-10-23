@@ -10,7 +10,10 @@ namespace LoupixDeck.Plugin.SpotifyPremium.Spotify;
 ///
 /// Polls in the background only while a button that shows player state is on
 /// screen (see <see cref="MarkDisplayed"/>) or a stateful button is bound to
-/// such a command, which covers the LED buttons the host never draws. One poll
+/// such a command, which covers the LED buttons the host never draws. A bound
+/// button counts wherever it is: the host reports touch buttons on every page
+/// of the active workspace and LED buttons of every profile, shown or not;
+/// it has no API that tells them apart, so this is accepted. One poll
 /// serves every button, at the shortest interval any of them needs. Every Spotify request counts
 /// against the developer account's daily Development Mode quota, so with only
 /// plain buttons nothing is polled and a command fetches the state it needs
@@ -36,6 +39,11 @@ public sealed class PlayerStateCache : IDisposable
     // A like made in the Spotify app during the track shows from the next one.
     private string _likedTrackUri = string.Empty;
     private bool _liked;
+    // A track whose like check failed is asked again only after a pause, so a
+    // check that keeps failing does not add a request to every poll.
+    private static readonly TimeSpan LikedRetryInterval = TimeSpan.FromSeconds(60);
+    private string _likedFailedUri = string.Empty;
+    private DateTime _likedRetryUtc = DateTime.MinValue;
 
     /// <summary>Poll interval while a play/pause, mute, shuffle, repeat or volume display is on screen.</summary>
     public static readonly TimeSpan LivePollInterval = TimeSpan.FromSeconds(10);
@@ -60,7 +68,10 @@ public sealed class PlayerStateCache : IDisposable
     private readonly IReadOnlyDictionary<string, TimeSpan> _stateCommands;
     private TimeSpan? _boundInterval;
     private DateTime _boundCheckedUtc = DateTime.MinValue;
-    private DateTime _lastPollUtc = DateTime.MinValue;
+    // Spaces polls out, failed ones included.
+    private DateTime _lastPollAttemptUtc = DateTime.MinValue;
+    // When State last matched Spotify; a failed poll leaves it unchanged.
+    private DateTime _lastPollSuccessUtc = DateTime.MinValue;
     private static readonly TimeSpan LocalTrustWindow = TimeSpan.FromSeconds(5);
     // Track position lives outside the snapshot: it changes on every poll and
     // would otherwise fire Changed (and redraw every button) each time.
@@ -90,6 +101,13 @@ public sealed class PlayerStateCache : IDisposable
     public PlayerSnapshot State { get; private set; } = PlayerSnapshot.Empty;
 
     public event Action<PlayerSnapshot>? Changed;
+
+    /// <summary>
+    /// Raised after every successful poll, changed or not. Dial values are
+    /// redrawn on it: the track position moves without a change to the
+    /// snapshot, and a redraw is what tells the cache a dial is still bound.
+    /// </summary>
+    public event Action? Polled;
 
     public void Start()
     {
@@ -174,7 +192,7 @@ public sealed class PlayerStateCache : IDisposable
     }
 
     /// <summary>Whether <see cref="State"/> was polled within the last few seconds.</summary>
-    public bool IsFresh => DateTime.UtcNow - _lastPollUtc < FreshFor;
+    public bool IsFresh => DateTime.UtcNow - _lastPollSuccessUtc < FreshFor;
 
     /// <summary>Polls now unless <see cref="State"/> is fresh. Call before acting on the state.</summary>
     public async Task EnsureFreshAsync()
@@ -331,12 +349,12 @@ public sealed class PlayerStateCache : IDisposable
 
         // Every loop tick until the new track shows, then the normal interval.
         if (TrackChangePending()) return true;
-        if (TrackEnded() && DateTime.UtcNow - _lastPollUtc >= TrackEndRetry) return true;
+        if (TrackEnded() && DateTime.UtcNow - _lastPollAttemptUtc >= TrackEndRetry) return true;
 
         if (string.IsNullOrEmpty(State.DeviceId) && interval < IdlePollInterval)
             interval = IdlePollInterval;
 
-        return DateTime.UtcNow - _lastPollUtc >= interval;
+        return DateTime.UtcNow - _lastPollAttemptUtc >= interval;
     }
 
     private async Task PollOnceAsync(CancellationToken ct)
@@ -346,7 +364,7 @@ public sealed class PlayerStateCache : IDisposable
         if (_clientProvider.RateLimitedUntilUtc != null) return;
 
         // Counted from the attempt, so a failing poll is not retried at once.
-        _lastPollUtc = DateTime.UtcNow;
+        _lastPollAttemptUtc = DateTime.UtcNow;
 
         try
         {
@@ -361,6 +379,8 @@ public sealed class PlayerStateCache : IDisposable
             if (playback == null)
             {
                 Update(PlayerSnapshot.Empty);
+                _lastPollSuccessUtc = DateTime.UtcNow;
+                RaisePolled();
                 return;
             }
 
@@ -405,6 +425,8 @@ public sealed class PlayerStateCache : IDisposable
             };
 
             Update(snap);
+            _lastPollSuccessUtc = DateTime.UtcNow;
+            RaisePolled();
         }
         catch (APITooManyRequestsException ex)
         {
@@ -435,7 +457,9 @@ public sealed class PlayerStateCache : IDisposable
 
     /// <summary>
     /// Whether <paramref name="trackUri"/> is in the user's Liked Songs. Asks
-    /// Spotify once per track; a failed check is tried again on the next poll.
+    /// Spotify once per track; a failed check is tried again after
+    /// <see cref="LikedRetryInterval"/>. A 429 is not caught here: it ends the
+    /// poll in <see cref="PollOnceAsync"/>, so the last known state stays.
     /// </summary>
     private async Task<bool> ResolveLikedAsync(SpotifyAPI.Web.SpotifyClient client, string trackUri)
     {
@@ -443,24 +467,32 @@ public sealed class PlayerStateCache : IDisposable
 
         if (trackUri == _likedTrackUri) return _liked;
 
+        // Shown as "not liked" until a check succeeds.
+        if (trackUri == _likedFailedUri && DateTime.UtcNow < _likedRetryUtc) return false;
+
         try
         {
             var saved = await client.Library.CheckItems(new LibraryCheckItemsRequest(new[] { trackUri }));
             _liked = saved is { Count: > 0 } && saved[0];
             _likedTrackUri = trackUri;
+            _likedFailedUri = string.Empty;
             return _liked;
         }
-        catch (APITooManyRequestsException ex)
+        catch (APIException ex) when (ex is not APITooManyRequestsException)
         {
-            _clientProvider.NoteRateLimit(ex);
+            // Logged once per track, not on every retry.
+            if (trackUri != _likedFailedUri)
+                _host.Logger.Warn($"Like state check failed: {ex.Message}");
+            _likedFailedUri = trackUri;
+            _likedRetryUtc = DateTime.UtcNow + LikedRetryInterval;
+            return false;
         }
-        catch (APIException ex)
-        {
-            _host.Logger.Warn($"Like state check failed: {ex.Message}");
-        }
+    }
 
-        // Shown as "not liked" until a check succeeds.
-        return false;
+    private void RaisePolled()
+    {
+        try { Polled?.Invoke(); }
+        catch (Exception ex) { _host.Logger.Error("PlayerStateCache.Polled handler error", ex); }
     }
 
     private void Update(PlayerSnapshot snap)

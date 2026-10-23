@@ -233,20 +233,24 @@ internal sealed class PlayAndNavigateAdjustment : SpotifyCommandBase, IAdjustmen
 
     public async Task ApplyAdjustment(CommandContext ctx, int ticks)
     {
-        var s = await Client.GetClientAsync(); if (s == null) return;
-        if (ticks > 0)
-            await s.Player.SkipNext(new PlayerSkipNextRequest { DeviceId = DeviceId(ctx, Player.State) });
-        else if (ticks < 0)
-            await s.Player.SkipPrevious(new PlayerSkipPreviousRequest { DeviceId = DeviceId(ctx, Player.State) });
-        if (ticks != 0)
-            Player.ExpectTrackChange();
+        await RunAdjustmentAsync(async s =>
+        {
+            if (ticks > 0)
+                await s.Player.SkipNext(new PlayerSkipNextRequest { DeviceId = DeviceId(ctx, Player.State) });
+            else if (ticks < 0)
+                await s.Player.SkipPrevious(new PlayerSkipPreviousRequest { DeviceId = DeviceId(ctx, Player.State) });
+            if (ticks != 0)
+                Player.ExpectTrackChange();
+        });
     }
 
     public async Task ApplyReset(CommandContext ctx)
     {
-        var s = await Client.GetClientAsync(); if (s == null) return;
-        await Player.EnsureFreshAsync();
-        await TogglePlaybackAsync(s, DeviceId(ctx, Player.State));
+        await RunAdjustmentAsync(async s =>
+        {
+            await Player.EnsureFreshAsync();
+            await TogglePlaybackAsync(s, DeviceId(ctx, Player.State));
+        });
     }
 
     public string? GetValueText(CommandContext ctx) => ShownState(PlayerStateCache.TrackPollInterval).TrackName;

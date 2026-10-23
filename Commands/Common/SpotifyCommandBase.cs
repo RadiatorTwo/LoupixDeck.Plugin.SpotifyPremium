@@ -85,6 +85,33 @@ internal abstract class SpotifyCommandBase : IPluginCommand
     protected abstract Task Run(SpotifyAPI.Web.SpotifyClient spotify, CommandContext ctx);
 
     /// <summary>
+    /// Runs a dial turn or press with the error handling of <see cref="Execute"/>.
+    /// The host calls adjustments directly, not through <see cref="Execute"/>,
+    /// so without this a 429 from a dial would not start a block.
+    /// </summary>
+    protected async Task RunAdjustmentAsync(Func<SpotifyAPI.Web.SpotifyClient, Task> action)
+    {
+        try
+        {
+            var spotify = await Client.GetClientAsync();
+            if (spotify == null) return;
+            await action(spotify);
+        }
+        catch (APITooManyRequestsException ex)
+        {
+            Client.NoteRateLimit(ex);
+        }
+        catch (APIException ex)
+        {
+            Logger.Warn($"{Descriptor.CommandName}: Spotify API returned {ex.Response?.StatusCode} {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"{Descriptor.CommandName}: unexpected error", ex);
+        }
+    }
+
+    /// <summary>
     /// The player state for drawing a button or value. Tells the cache the
     /// display is on screen, so it polls every <paramref name="pollInterval"/>
     /// while the host keeps drawing it.
