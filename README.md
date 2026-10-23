@@ -10,7 +10,18 @@ Requires a Spotify Premium account.
 Playback: `SpotifyPremium.TogglePlayback`, `SpotifyPremium.NextTrack`,
 `SpotifyPremium.PreviousTrack`, `SpotifyPremium.ShufflePlay`,
 `SpotifyPremium.ChangeRepeatState`, `SpotifyPremium.PlayNavigateLeft`,
-`SpotifyPremium.PlayNavigateRight`, `SpotifyPremium.PlayAndNavigate`.
+`SpotifyPremium.PlayNavigateRight`, `SpotifyPremium.PlayAndNavigate`,
+`SpotifyPremium.SeekForward`, `SpotifyPremium.SeekBackward`,
+`SpotifyPremium.SeekAdjustment`, `SpotifyPremium.AlbumArt`.
+
+`SpotifyPremium.AlbumArt(Opacity,Spin)` shows the current track's cover on a
+touch button or a wheel layer; pressing it toggles play/pause. `Opacity`
+(0–100, default 100) dims it, for example behind text. `Spin` is the number
+of seconds per full turn (default 0, still): the cover turns while the track
+plays and holds still while paused or while you scrub. On a square touch
+button the corners show as it turns, so spinning suits the round CT wheel.
+Covers are downloaded from Spotify's image servers once per track and do not
+count against the Web API quota.
 
 Volume: `SpotifyPremium.Mute`, `SpotifyPremium.Unmute`,
 `SpotifyPremium.ToggleMute`, `SpotifyPremium.DirectVolume`,
@@ -25,6 +36,23 @@ Devices: `SpotifyPremium.OpenDeviceSelector` — touch-screen folder listing
 the available Spotify Connect devices for transfer.
 
 Auth: `SpotifyPremium.Login` — triggers the OAuth flow.
+
+### CT wheel: seek with track name and album art
+
+`SpotifyPremium.SeekAdjustment` reports the track position to the dial
+indicator, the time (`1:23 / 4:05`) as the value text and the track name as
+the value detail. Without a custom layout the wheel shows the wheel mode's
+name, the time and the indicator. To show the track name and cover:
+
+1. Bind Seek to a wheel mode and open its appearance editor.
+2. Select the label text layer and set its **Text source** to **Value
+   detail**. It then shows the track name. Left on **Wheel label**, it shows
+   the wheel mode's name, which is blank unless you named the mode.
+3. Restyle the indicator and the time text as you like.
+4. Add a live image layer, pick Album Art as its command and move it to the
+   bottom. To set the parameters, edit the command text under the picker:
+   `SpotifyPremium.AlbumArt(60,30)` dims the cover to 60% and turns it once
+   every 30 seconds.
 
 ## Setup
 

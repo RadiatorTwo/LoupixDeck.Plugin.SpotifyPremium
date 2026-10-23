@@ -263,8 +263,12 @@ public sealed class PlayerStateCache : IDisposable
         {
             _progressMs = positionMs;
             _progressAtUtc = DateTime.UtcNow;
+            LastLocalSeekUtc = _progressAtUtc;
         }
     }
+
+    /// <summary>When a seek was last requested from the deck, so a display can tell scrubbing from playback.</summary>
+    public DateTime LastLocalSeekUtc { get; private set; } = DateTime.MinValue;
 
     private async Task LoopAsync(CancellationToken ct)
     {
@@ -350,6 +354,7 @@ public sealed class PlayerStateCache : IDisposable
                 TrackUri = track?.Uri ?? string.Empty,
                 TrackName = track?.Name ?? string.Empty,
                 ArtistName = track?.Artists?.FirstOrDefault()?.Name ?? string.Empty,
+                AlbumImageUrl = CoverUrl(track),
                 DeviceId = playback.Device?.Id ?? string.Empty,
                 DeviceName = playback.Device?.Name ?? string.Empty,
                 VolumePercent = volume,
@@ -370,6 +375,19 @@ public sealed class PlayerStateCache : IDisposable
         {
             _host.Logger.Error("PlayerState poll error", ex);
         }
+    }
+
+    /// <summary>
+    /// The cover to show: the smallest one still 300 px wide, which is sharp on
+    /// the 240 px CT wheel, else the largest there is.
+    /// </summary>
+    private static string CoverUrl(FullTrack? track)
+    {
+        var images = track?.Album?.Images;
+        if (images is not { Count: > 0 }) return string.Empty;
+        var image = images.Where(i => i.Width >= 300).MinBy(i => i.Width)
+                    ?? images.MaxBy(i => i.Width);
+        return image?.Url ?? string.Empty;
     }
 
     /// <summary>
@@ -427,6 +445,7 @@ public sealed record PlayerSnapshot
     public string TrackUri { get; init; } = string.Empty;
     public string TrackName { get; init; } = string.Empty;
     public string ArtistName { get; init; } = string.Empty;
+    public string AlbumImageUrl { get; init; } = string.Empty;
     public string DeviceId { get; init; } = string.Empty;
     public string DeviceName { get; init; } = string.Empty;
     public int VolumePercent { get; init; }
