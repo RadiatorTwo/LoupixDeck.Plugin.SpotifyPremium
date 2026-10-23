@@ -65,7 +65,10 @@ public sealed class PlayerStateCache : IDisposable
     private readonly IReadOnlyDictionary<string, TimeSpan> _stateCommands;
     private TimeSpan? _boundInterval;
     private DateTime _boundCheckedUtc = DateTime.MinValue;
-    private DateTime _lastPollUtc = DateTime.MinValue;
+    // Spaces polls out, failed ones included.
+    private DateTime _lastPollAttemptUtc = DateTime.MinValue;
+    // When State last matched Spotify; a failed poll leaves it unchanged.
+    private DateTime _lastPollSuccessUtc = DateTime.MinValue;
     private static readonly TimeSpan LocalTrustWindow = TimeSpan.FromSeconds(5);
     // Track position lives outside the snapshot: it changes on every poll and
     // would otherwise fire Changed (and redraw every button) each time.
@@ -179,7 +182,7 @@ public sealed class PlayerStateCache : IDisposable
     }
 
     /// <summary>Whether <see cref="State"/> was polled within the last few seconds.</summary>
-    public bool IsFresh => DateTime.UtcNow - _lastPollUtc < FreshFor;
+    public bool IsFresh => DateTime.UtcNow - _lastPollSuccessUtc < FreshFor;
 
     /// <summary>Polls now unless <see cref="State"/> is fresh. Call before acting on the state.</summary>
     public async Task EnsureFreshAsync()
@@ -336,12 +339,12 @@ public sealed class PlayerStateCache : IDisposable
 
         // Every loop tick until the new track shows, then the normal interval.
         if (TrackChangePending()) return true;
-        if (TrackEnded() && DateTime.UtcNow - _lastPollUtc >= TrackEndRetry) return true;
+        if (TrackEnded() && DateTime.UtcNow - _lastPollAttemptUtc >= TrackEndRetry) return true;
 
         if (string.IsNullOrEmpty(State.DeviceId) && interval < IdlePollInterval)
             interval = IdlePollInterval;
 
-        return DateTime.UtcNow - _lastPollUtc >= interval;
+        return DateTime.UtcNow - _lastPollAttemptUtc >= interval;
     }
 
     private async Task PollOnceAsync(CancellationToken ct)
@@ -351,7 +354,7 @@ public sealed class PlayerStateCache : IDisposable
         if (_clientProvider.RateLimitedUntilUtc != null) return;
 
         // Counted from the attempt, so a failing poll is not retried at once.
-        _lastPollUtc = DateTime.UtcNow;
+        _lastPollAttemptUtc = DateTime.UtcNow;
 
         try
         {
@@ -366,6 +369,7 @@ public sealed class PlayerStateCache : IDisposable
             if (playback == null)
             {
                 Update(PlayerSnapshot.Empty);
+                _lastPollSuccessUtc = DateTime.UtcNow;
                 return;
             }
 
@@ -410,6 +414,7 @@ public sealed class PlayerStateCache : IDisposable
             };
 
             Update(snap);
+            _lastPollSuccessUtc = DateTime.UtcNow;
         }
         catch (APITooManyRequestsException ex)
         {
