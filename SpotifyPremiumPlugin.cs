@@ -93,6 +93,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
 
         _playerState = new PlayerStateCache(_clientProvider, host, StateCommands);
         _playerState.Changed += OnPlayerStateChanged;
+        _playerState.Polled += RefreshDials;
         _playerState.Start();
 
         _commands =
@@ -568,6 +569,27 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
         {
             try { _host.RequestButtonRefresh(name); }
             catch { /* host may not be ready or button not bound — ignore */ }
+        }
+
+        RefreshDials();
+    }
+
+    /// <summary>
+    /// Asks the host to redraw the dials showing player state. The host draws
+    /// a dial value only on request, never on a timer; the redraw calls
+    /// GetValueText, which keeps the cache polling while such a dial is bound.
+    /// </summary>
+    private void RefreshDials()
+    {
+        foreach (var name in new[]
+        {
+            "SpotifyPremium.PlayAndNavigate",
+            "SpotifyPremium.VolumeAdjustment",
+            "SpotifyPremium.SeekAdjustment"
+        })
+        {
+            try { _host.RequestButtonRefresh(name); }
+            catch { /* host may not be ready or dial not bound — ignore */ }
         }
     }
 }

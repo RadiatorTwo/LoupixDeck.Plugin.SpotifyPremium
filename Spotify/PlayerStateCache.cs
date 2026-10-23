@@ -99,6 +99,13 @@ public sealed class PlayerStateCache : IDisposable
 
     public event Action<PlayerSnapshot>? Changed;
 
+    /// <summary>
+    /// Raised after every successful poll, changed or not. Dial values are
+    /// redrawn on it: the track position moves without a change to the
+    /// snapshot, and a redraw is what tells the cache a dial is still bound.
+    /// </summary>
+    public event Action? Polled;
+
     public void Start()
     {
         if (_loopTask != null) return;
@@ -370,6 +377,7 @@ public sealed class PlayerStateCache : IDisposable
             {
                 Update(PlayerSnapshot.Empty);
                 _lastPollSuccessUtc = DateTime.UtcNow;
+                RaisePolled();
                 return;
             }
 
@@ -415,6 +423,7 @@ public sealed class PlayerStateCache : IDisposable
 
             Update(snap);
             _lastPollSuccessUtc = DateTime.UtcNow;
+            RaisePolled();
         }
         catch (APITooManyRequestsException ex)
         {
@@ -475,6 +484,12 @@ public sealed class PlayerStateCache : IDisposable
             _likedRetryUtc = DateTime.UtcNow + LikedRetryInterval;
             return false;
         }
+    }
+
+    private void RaisePolled()
+    {
+        try { Polled?.Invoke(); }
+        catch (Exception ex) { _host.Logger.Error("PlayerStateCache.Polled handler error", ex); }
     }
 
     private void Update(PlayerSnapshot snap)
