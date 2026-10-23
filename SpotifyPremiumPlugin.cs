@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using LoupixDeck.Plugin.SpotifyPremium.Commands.Auth;
 using LoupixDeck.Plugin.SpotifyPremium.Commands.Common;
 using LoupixDeck.Plugin.SpotifyPremium.Commands.Library;
@@ -88,6 +89,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
             _auth,
             () => host.Settings.Get<string>(SettingClientId),
             () => host.Settings.Get<string>(SettingClientSecret));
+        _clientProvider.RateLimitChanged += RequestRequirementsRefresh;
 
         _playerState = new PlayerStateCache(_clientProvider, host, StateCommands);
         _playerState.Changed += OnPlayerStateChanged;
@@ -171,6 +173,26 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
             }
         ];
     }
+
+    /// <summary>
+    /// Asks the host to read <see cref="GetRequirements"/> again, so its notice
+    /// appears and clears with the block. The call exists from SDK 1.34 on; an
+    /// older host shows the block only when the Plugins window is opened.
+    /// </summary>
+    private void RequestRequirementsRefresh()
+    {
+        try
+        {
+            CallRequestRequirementsRefresh(_host);
+        }
+        catch (MissingMethodException)
+        {
+        }
+    }
+
+    // Kept out of line so a missing member fails here, inside the caller's try.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void CallRequestRequirementsRefresh(IPluginHost host) => host.RequestRequirementsRefresh();
 
     // ---- IPluginSettingsPage ----
 
