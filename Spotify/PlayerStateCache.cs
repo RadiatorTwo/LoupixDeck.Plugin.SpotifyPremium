@@ -10,7 +10,10 @@ namespace LoupixDeck.Plugin.SpotifyPremium.Spotify;
 ///
 /// Polls in the background only while a button that shows player state is on
 /// screen (see <see cref="MarkDisplayed"/>) or a stateful button is bound to
-/// such a command, which covers the LED buttons the host never draws. One poll
+/// such a command, which covers the LED buttons the host never draws. A bound
+/// button counts wherever it is: the host reports touch buttons on every page
+/// of the active workspace and LED buttons of every profile, shown or not;
+/// it has no API that tells them apart, so this is accepted. One poll
 /// serves every button, at the shortest interval any of them needs. Every Spotify request counts
 /// against the developer account's daily Development Mode quota, so with only
 /// plain buttons nothing is polled and a command fetches the state it needs
