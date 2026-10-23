@@ -19,7 +19,7 @@ internal abstract class SeekStepBase : SpotifyCommandBase
     /// <summary>+1 seeks forward, -1 backward.</summary>
     protected abstract int Direction { get; }
 
-    public override ButtonTargets SupportedTargets => ButtonTargets.RotaryEncoder | ButtonTargets.SimpleButton;
+    public override ButtonTargets SupportedTargets => ButtonTargets.RotaryEncoder | ButtonTargets.SimpleButton | ButtonTargets.TouchButton;
 
     protected override Task Run(SpotifyAPI.Web.SpotifyClient s, CommandContext ctx)
     {

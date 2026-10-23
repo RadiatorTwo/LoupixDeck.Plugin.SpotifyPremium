@@ -157,7 +157,7 @@ internal abstract class VolumeStepBase : SpotifyCommandBase
         return Step;
     }
 
-    public override ButtonTargets SupportedTargets => ButtonTargets.RotaryEncoder | ButtonTargets.SimpleButton;
+    public override ButtonTargets SupportedTargets => ButtonTargets.RotaryEncoder | ButtonTargets.SimpleButton | ButtonTargets.TouchButton;
 
     public override async Task Execute(CommandContext ctx)
     {

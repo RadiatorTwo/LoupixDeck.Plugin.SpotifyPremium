@@ -73,5 +73,8 @@
   "Repeat is off": "Wiederholen ist aus",
   "Repeats the playlist or album": "Wiederholt die Playlist oder das Album",
   "Repeats the current track": "Wiederholt den aktuellen Song",
-  "Open Setup Guide": "Einrichtungsanleitung öffnen"
+  "Open Setup Guide": "Einrichtungsanleitung öffnen",
+  "Spotify volume": "Spotify-Lautstärke",
+  "Spotify track navigation": "Spotify-Song wechseln",
+  "Spotify seek": "Spotify-Spulen"
 }
