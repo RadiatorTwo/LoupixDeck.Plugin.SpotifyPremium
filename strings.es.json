@@ -73,5 +73,8 @@
   "Repeat is off": "Repetir está desactivado",
   "Repeats the playlist or album": "Repite la playlist o el álbum",
   "Repeats the current track": "Repite la canción actual",
-  "Open Setup Guide": "Abrir la guía de configuración"
+  "Open Setup Guide": "Abrir la guía de configuración",
+  "Spotify volume": "Volumen de Spotify",
+  "Spotify track navigation": "Cambiar canción en Spotify",
+  "Spotify seek": "Avanzar y retroceder en Spotify"
 }

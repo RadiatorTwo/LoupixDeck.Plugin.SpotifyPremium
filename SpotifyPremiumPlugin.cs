@@ -141,6 +141,31 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
         }
     ];
 
+    /// <summary>
+    /// Ready-made dials: each binds turn left, turn right and press to one
+    /// adjustment command, which handles all three itself.
+    /// </summary>
+    /// <remarks>The ids are the presets' identity in the host — never change them.</remarks>
+    public override IEnumerable<DialPresetDescriptor> GetDialPresets() =>
+    [
+        DialPreset("volume", Tr("Spotify volume"), SpotifyIcons.VolumeDial, "SpotifyPremium.VolumeAdjustment"),
+        DialPreset("track-navigation", Tr("Spotify track navigation"), SpotifyIcons.TrackNavigation, "SpotifyPremium.PlayAndNavigate"),
+        DialPreset("seek", Tr("Spotify seek"), SpotifyIcons.Seek, "SpotifyPremium.SeekAdjustment")
+    ];
+
+    private static DialPresetDescriptor DialPreset(string id, string name, string glyph, string commandName) => new()
+    {
+        Id = id,
+        Name = name,
+        Glyph = glyph,
+        Actions = new Dictionary<RotaryAction, MenuCommandRef>
+        {
+            [RotaryAction.CounterClockwise] = new() { CommandName = commandName },
+            [RotaryAction.Clockwise] = new() { CommandName = commandName },
+            [RotaryAction.Press] = new() { CommandName = commandName }
+        }
+    };
+
     public override void Shutdown()
     {
         _playerState?.Dispose();
