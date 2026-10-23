@@ -14,11 +14,13 @@ namespace LoupixDeck.Plugin.SpotifyPremium.Commands.Playlists;
 internal sealed class StartPlaylistCommand : IPluginCommand
 {
     private readonly SpotifyClientProvider _client;
+    private readonly PlayerStateCache _player;
     private readonly IPluginLogger _logger;
 
-    public StartPlaylistCommand(SpotifyClientProvider client, IPluginLogger logger)
+    public StartPlaylistCommand(SpotifyClientProvider client, PlayerStateCache player, IPluginLogger logger)
     {
         _client = client;
+        _player = player;
         _logger = logger;
     }
 
@@ -50,6 +52,7 @@ internal sealed class StartPlaylistCommand : IPluginCommand
             {
                 ContextUri = $"spotify:playlist:{ctx.Parameters[0]}"
             });
+            _player.ExpectTrackChange();
         }
         catch (APITooManyRequestsException ex)
         {
@@ -142,6 +145,7 @@ internal sealed class StartAlbumCommand : SpotifyCommandBase
 {
     public StartAlbumCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
     protected override bool NeedsPlayerState => false;
+    protected override bool ChangesTrack => true;
 
     public override CommandDescriptor Descriptor { get; } = new()
     {

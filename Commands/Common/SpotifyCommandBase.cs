@@ -34,6 +34,12 @@ internal abstract class SpotifyCommandBase : IPluginCommand
     /// </summary>
     protected virtual bool NeedsPlayerState => true;
 
+    /// <summary>
+    /// Whether <see cref="Run"/> moves playback to another track, so the cache
+    /// watches for the new one (<see cref="PlayerStateCache.ExpectTrackChange"/>).
+    /// </summary>
+    protected virtual bool ChangesTrack => false;
+
     public virtual async Task Execute(CommandContext ctx)
     {
         try
@@ -55,6 +61,8 @@ internal abstract class SpotifyCommandBase : IPluginCommand
                 await Player.EnsureFreshAsync();
 
             await Run(spotify, ctx);
+            if (ChangesTrack)
+                Player.ExpectTrackChange();
             // Refresh cached state so buttons on screen reflect the change; with
             // none shown the next press fetches it anyway.
             if (Player.HasDemand)

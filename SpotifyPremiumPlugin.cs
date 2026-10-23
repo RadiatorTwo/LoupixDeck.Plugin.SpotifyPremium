@@ -120,7 +120,7 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
             new PlayLikedSongsCommand(_clientProvider, _playerState, host.Logger),
             new SaveToPlaylistCommand(_clientProvider, _playerState, host.Logger),
             new RemoveFromPlaylistCommand(_clientProvider, _playerState, host.Logger),
-            new StartPlaylistCommand(_clientProvider, host.Logger),
+            new StartPlaylistCommand(_clientProvider, _playerState, host.Logger),
             new StartAlbumCommand(_clientProvider, _playerState, host.Logger),
             new OpenDeviceSelectorCommand(_clientProvider, _playerState)
         ];
@@ -533,7 +533,10 @@ public sealed class SpotifyPremiumPlugin : LoupixPlugin, IPluginSettingsPage, IM
             "SpotifyPremium.ShufflePlay",
             "SpotifyPremium.ChangeRepeatState",
             "SpotifyPremium.ToggleMute",
-            "SpotifyPremium.ToggleLike"
+            "SpotifyPremium.ToggleLike",
+            // Track name and time on the Seek dial, and the cover.
+            "SpotifyPremium.SeekAdjustment",
+            AlbumArtCommand.Name
         })
         {
             try { _host.RequestButtonRefresh(name); }

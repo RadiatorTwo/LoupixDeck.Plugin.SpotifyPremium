@@ -68,6 +68,14 @@ public sealed class PlayerStateCache : IDisposable
     private int _progressMs;
     private int _durationMs;
     private DateTime _progressAtUtc = DateTime.MinValue;
+    // A track change shows on screen as soon as Spotify reports it: once the
+    // estimated position passes the end of the track, and for a few seconds
+    // after a skip or a new playlist from the deck (Spotify reports the new
+    // track only after a moment). Both only while something is on screen.
+    private static readonly TimeSpan TrackEndRetry = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan TrackChangeWindow = TimeSpan.FromSeconds(5);
+    private string _changingFromTrackId = string.Empty;
+    private DateTime _trackChangeUntilUtc = DateTime.MinValue;
 
     /// <param name="stateCommands">Commands that show player state on a stateful
     /// button, with how often that state needs refreshing.</param>
@@ -267,6 +275,37 @@ public sealed class PlayerStateCache : IDisposable
         }
     }
 
+    /// <summary>
+    /// Called after a command that moves to another track (skip, a new
+    /// playlist, album or Liked Songs), so the next few polls come every
+    /// second until Spotify reports a different track.
+    /// </summary>
+    public void ExpectTrackChange()
+    {
+        lock (_progressGate)
+        {
+            _changingFromTrackId = State.TrackId;
+            _trackChangeUntilUtc = DateTime.UtcNow + TrackChangeWindow;
+        }
+    }
+
+    private bool TrackChangePending()
+    {
+        lock (_progressGate)
+            return DateTime.UtcNow < _trackChangeUntilUtc && State.TrackId == _changingFromTrackId;
+    }
+
+    /// <summary>Whether the track should have finished by now, going by the last polled position.</summary>
+    private bool TrackEnded()
+    {
+        lock (_progressGate)
+        {
+            if (!State.IsPlaying || _durationMs <= 0) return false;
+            var position = _progressMs + (DateTime.UtcNow - _progressAtUtc).TotalMilliseconds;
+            return position >= _durationMs + 500;
+        }
+    }
+
     /// <summary>When a seek was last requested from the deck, so a display can tell scrubbing from playback.</summary>
     public DateTime LastLocalSeekUtc { get; private set; } = DateTime.MinValue;
 
@@ -289,6 +328,10 @@ public sealed class PlayerStateCache : IDisposable
     private bool PollDue()
     {
         if (DemandedInterval() is not { } interval) return false;
+
+        // Every loop tick until the new track shows, then the normal interval.
+        if (TrackChangePending()) return true;
+        if (TrackEnded() && DateTime.UtcNow - _lastPollUtc >= TrackEndRetry) return true;
 
         if (string.IsNullOrEmpty(State.DeviceId) && interval < IdlePollInterval)
             interval = IdlePollInterval;

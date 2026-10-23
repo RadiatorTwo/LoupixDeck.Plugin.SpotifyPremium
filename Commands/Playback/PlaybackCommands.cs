@@ -44,6 +44,7 @@ internal sealed class NextTrackCommand : SpotifyCommandBase
 {
     public NextTrackCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
     protected override bool NeedsPlayerState => false;
+    protected override bool ChangesTrack => true;
 
     public override CommandDescriptor Descriptor { get; } = new()
     {
@@ -64,6 +65,7 @@ internal sealed class PreviousTrackCommand : SpotifyCommandBase
 {
     public PreviousTrackCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
     protected override bool NeedsPlayerState => false;
+    protected override bool ChangesTrack => true;
 
     public override CommandDescriptor Descriptor { get; } = new()
     {
@@ -180,6 +182,7 @@ internal sealed class PlayNavigateLeftCommand : SpotifyCommandBase
 {
     public PlayNavigateLeftCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
     protected override bool NeedsPlayerState => false;
+    protected override bool ChangesTrack => true;
     public override CommandDescriptor Descriptor { get; } = new()
     {
         CommandName = "SpotifyPremium.PlayNavigate.Left",
@@ -198,6 +201,7 @@ internal sealed class PlayNavigateRightCommand : SpotifyCommandBase
 {
     public PlayNavigateRightCommand(SpotifyClientProvider c, PlayerStateCache p, IPluginLogger l) : base(c, p, l) { }
     protected override bool NeedsPlayerState => false;
+    protected override bool ChangesTrack => true;
     public override CommandDescriptor Descriptor { get; } = new()
     {
         CommandName = "SpotifyPremium.PlayNavigate.Right",
@@ -234,6 +238,8 @@ internal sealed class PlayAndNavigateAdjustment : SpotifyCommandBase, IAdjustmen
             await s.Player.SkipNext(new PlayerSkipNextRequest { DeviceId = DeviceId(ctx, Player.State) });
         else if (ticks < 0)
             await s.Player.SkipPrevious(new PlayerSkipPreviousRequest { DeviceId = DeviceId(ctx, Player.State) });
+        if (ticks != 0)
+            Player.ExpectTrackChange();
     }
 
     public async Task ApplyReset(CommandContext ctx)
